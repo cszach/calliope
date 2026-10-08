@@ -84,7 +84,7 @@ impl Default for QuickAskConfig {
         Self {
             width: 480,
             height: 640,
-            submit: false,
+            submit: true,
         }
     }
 }
@@ -150,6 +150,25 @@ impl OriginPermissions {
     }
 }
 
+const SAVED_HEADER: &str = "# Muse settings that differ from the defaults. Muse rewrites this file;\n\
+     # see config.example.toml in the repository for every key.\n\n";
+
+/// Removes from `value` every key whose value equals the one in `defaults`,
+/// recursing into tables and dropping tables left empty.
+fn prune_defaults(value: &mut toml::Value, defaults: &toml::Value) {
+    let (Some(table), Some(defaults)) = (value.as_table_mut(), defaults.as_table()) else {
+        return;
+    };
+    table.retain(|key, v| match defaults.get(key) {
+        Some(d) if v == d => false,
+        Some(d) if v.is_table() => {
+            prune_defaults(v, d);
+            v.as_table().is_some_and(|t| !t.is_empty())
+        }
+        _ => true,
+    });
+}
+
 impl Config {
     /// Reads the config, falling back to defaults when the file is missing or
     /// broken. The flag says whether saving may overwrite the file: it is
@@ -175,9 +194,15 @@ impl Config {
         }
     }
 
-    /// Writes the config atomically: a crash mid-write leaves the old file.
+    /// Writes the values that differ from the defaults, atomically: a crash
+    /// mid-write leaves the old file. Leaving defaults out lets a changed
+    /// default reach existing installs.
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        let text = toml::to_string_pretty(self).map_err(io::Error::other)?;
+        let mut value = toml::Value::try_from(self).map_err(io::Error::other)?;
+        let defaults = toml::Value::try_from(Self::default()).map_err(io::Error::other)?;
+        prune_defaults(&mut value, &defaults);
+        let body = toml::to_string_pretty(&value).map_err(io::Error::other)?;
+        let text = format!("{SAVED_HEADER}{body}");
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
@@ -238,6 +263,44 @@ mod tests {
         std::fs::write(&path, "this is = = not toml").unwrap();
         // Defaults, and the broken file must not be overwritten.
         assert_eq!(Config::load(&path), (Config::default(), false));
+    }
+
+    #[test]
+    fn prompts_are_sent_by_default() {
+        assert!(Config::default().quick_ask.submit);
+    }
+
+    #[test]
+    fn saving_defaults_writes_no_settings() {
+        let path = temp_path("defaults");
+        Config::default().save(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        let settings: Vec<&str> = text
+            .lines()
+            .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+            .collect();
+        assert!(settings.is_empty(), "unexpected settings: {settings:?}");
+    }
+
+    #[test]
+    fn saving_keeps_only_changed_values() {
+        let path = temp_path("changed");
+        let mut cfg = Config::default();
+        cfg.window.width = 640;
+        cfg.quick_ask.submit = false;
+        cfg.remember_permission("https://muse.ai", Capability::Microphone, true);
+        cfg.save(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        for wanted in ["width = 640", "submit = false", "microphone = true"] {
+            assert!(text.contains(wanted), "missing {wanted:?} in:\n{text}");
+        }
+        for unwanted in ["start_url", "height", "zoom_level", "min_chars", "[webkit"] {
+            assert!(
+                !text.contains(unwanted),
+                "unexpected {unwanted:?} in:\n{text}"
+            );
+        }
+        assert_eq!(Config::load(&path), (cfg, true));
     }
 
     #[test]
