@@ -5,8 +5,9 @@
 //! at startup only when GNOME already has a binding stored for it; otherwise
 //! it waits for the user to choose "Quick Ask Shortcut…" in the menu.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::time::Duration;
 
 use adw::prelude::*;
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
@@ -20,9 +21,12 @@ const SHORTCUT_ID: &str = "quick-ask";
 const PREFERRED_TRIGGER: &str = "CTRL+ALT+m";
 /// Where GNOME Settings stores the bindings it has confirmed.
 const GNOME_SCHEMA: &str = "org.gnome.settings-daemon.global-shortcuts";
+/// At login the portal may not be up yet when autostart runs Muse.
+const STARTUP_RETRIES: u32 = 3;
+const RETRY_DELAY: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum State {
+enum State {
     #[default]
     Unbound,
     Binding,
@@ -33,22 +37,31 @@ pub enum State {
 thread_local! {
     /// The portal accepts one host-app registration per connection.
     static REGISTERED: Cell<bool> = const { Cell::new(false) };
+    static STATE: RefCell<State> = RefCell::new(State::default());
+}
+
+fn state() -> State {
+    STATE.with_borrow(Clone::clone)
+}
+
+fn set_state(state: State) {
+    STATE.set(state);
 }
 
 /// Binds the shortcut silently if GNOME already has one stored for this app.
 pub fn init(app: &Rc<App>) {
     if stored_in_gnome(&app_id(app)) {
-        start(app, None);
+        start(app, None, STARTUP_RETRIES);
     }
 }
 
 /// The "Quick Ask Shortcut…" menu item: binds the shortcut (GNOME shows its
 /// dialog the first time), or says which key it is.
 pub fn set_up(app: &Rc<App>, parent: Option<gtk::Window>) {
-    match app.hotkey_state() {
+    match state() {
         State::Binding => {}
         State::Bound(trigger) => explain(&trigger, parent.as_ref()),
-        State::Unbound => start(app, parent),
+        State::Unbound => start(app, parent, 0),
     }
 }
 
@@ -72,21 +85,32 @@ fn stored_in_gnome(app_id: &str) -> bool {
         .any(|id| id == app_id)
 }
 
-fn start(app: &Rc<App>, parent: Option<gtk::Window>) {
-    app.set_hotkey_state(State::Binding);
+/// Binds in the background. `retries` applies to the silent startup bind.
+fn start(app: &Rc<App>, parent: Option<gtk::Window>, retries: u32) {
+    set_state(State::Binding);
     let app = Rc::clone(app);
     glib::spawn_future_local(async move {
-        let interactive = parent.is_some();
-        if let Err(e) = listen(&app, parent.clone()).await {
-            log::warn!("quick-ask shortcut unavailable: {e}");
-            app.set_hotkey_state(State::Unbound);
+        let result = listen(&app, parent.clone()).await;
+        set_state(State::Unbound);
+        let Err(e) = result else {
+            log::warn!("quick-ask shortcut: the portal closed its signal stream");
+            return;
+        };
+        log::warn!("quick-ask shortcut unavailable: {e}");
+        if let Some(parent) = &parent {
             let cancelled = matches!(
                 e,
                 ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)
             );
-            if interactive && !cancelled {
-                failed(&e.to_string(), parent.as_ref());
+            if !cancelled {
+                failed(&e.to_string(), Some(parent));
             }
+        } else if retries > 0 {
+            glib::timeout_add_local_once(RETRY_DELAY, move || {
+                if state() == State::Unbound {
+                    start(&app, None, retries - 1);
+                }
+            });
         }
     });
 }
@@ -101,6 +125,20 @@ async fn listen(app: &Rc<App>, parent: Option<gtk::Window>) -> ashpd::Result<()>
     }
     let portal = GlobalShortcuts::new().await?;
     let session = portal.create_session(Default::default()).await?;
+    let result = bind_and_listen(app, &portal, &session, parent).await;
+    // A session can bind only once; close it so a retry starts clean.
+    if let Err(e) = session.close().await {
+        log::debug!("closing the shortcut session: {e}");
+    }
+    result
+}
+
+async fn bind_and_listen(
+    app: &Rc<App>,
+    portal: &GlobalShortcuts,
+    session: &ashpd::desktop::Session<GlobalShortcuts>,
+    parent: Option<gtk::Window>,
+) -> ashpd::Result<()> {
     let mut activated = portal.receive_activated().await?;
 
     let identifier = match &parent {
@@ -111,7 +149,7 @@ async fn listen(app: &Rc<App>, parent: Option<gtk::Window>) -> ashpd::Result<()>
         NewShortcut::new(SHORTCUT_ID, "Open Quick Ask").preferred_trigger(PREFERRED_TRIGGER);
     let bound = portal
         .bind_shortcuts(
-            &session,
+            session,
             &[shortcut],
             identifier.as_ref(),
             Default::default(),
@@ -125,7 +163,7 @@ async fn listen(app: &Rc<App>, parent: Option<gtk::Window>) -> ashpd::Result<()>
         .map(|s| s.trigger_description().to_owned())
         .unwrap_or_default();
     log::info!("quick-ask shortcut bound: {trigger:?}");
-    app.set_hotkey_state(State::Bound(trigger.clone()));
+    set_state(State::Bound(trigger.clone()));
     if parent.is_some() {
         explain(&trigger, parent.as_ref());
     }

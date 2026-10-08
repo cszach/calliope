@@ -68,9 +68,24 @@ fn show(app: &Rc<App>, token: Option<&str>) -> Option<webkit::WebView> {
     view
 }
 
+/// Remembers the window's size for next launch.
+pub fn remember_size(app: &App) {
+    let Some(window) = app.quick_ask_window().filter(|w| w.is_visible()) else {
+        return;
+    };
+    let (width, height) = window.default_size();
+    {
+        let mut config = app.config_mut();
+        config.quick_ask.width = width;
+        config.quick_ask.height = height;
+    }
+    app.save_config();
+}
+
 /// Hides the window, or destroys it when it is the last thing keeping Muse
 /// running and background mode is off.
 fn dismiss(app: &App, window: &adw::ApplicationWindow) {
+    remember_size(app);
     if app.keeps_quick_ask() {
         window.set_visible(false);
     } else {
@@ -117,6 +132,8 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
         #[upgrade_or]
         glib::Propagation::Proceed,
         move |_, key, _, modifiers| {
+            // Ignore lock keys such as Caps Lock; only real modifiers count.
+            let modifiers = modifiers & gtk::accelerator_get_default_mod_mask();
             if key == gdk::Key::Escape && modifiers.is_empty() {
                 dismiss(&a, &window);
                 glib::Propagation::Stop
@@ -129,13 +146,6 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
 
     let a = Rc::clone(app);
     window.connect_close_request(move |window| {
-        let (width, height) = window.default_size();
-        {
-            let mut config = a.config_mut();
-            config.quick_ask.width = width;
-            config.quick_ask.height = height;
-        }
-        a.save_config();
         dismiss(&a, window);
         glib::Propagation::Stop
     });

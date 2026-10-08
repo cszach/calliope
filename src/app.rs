@@ -52,7 +52,6 @@ pub struct App {
     /// Set by Quit, so closing the last window really closes it.
     quitting: Cell<bool>,
     quick_ask: glib::WeakRef<adw::ApplicationWindow>,
-    hotkey: RefCell<hotkey::State>,
 }
 
 impl App {
@@ -114,7 +113,6 @@ impl App {
             launch: RefCell::new(Launch::Normal),
             quitting: Cell::new(false),
             quick_ask: glib::WeakRef::new(),
-            hotkey: RefCell::new(hotkey::State::default()),
         });
         app.connect_signals();
         app
@@ -228,14 +226,6 @@ impl App {
     /// next time: only while something else keeps Muse running.
     pub fn keeps_quick_ask(&self) -> bool {
         self.config().background_mode || !self.main_windows().is_empty()
-    }
-
-    pub fn hotkey_state(&self) -> hotkey::State {
-        self.hotkey.borrow().clone()
-    }
-
-    pub fn set_hotkey_state(&self, state: hotkey::State) {
-        *self.hotkey.borrow_mut() = state;
     }
 
     /// Opens links in tabs of the current window, or a new one.
@@ -459,6 +449,7 @@ impl App {
                 // Closing runs each window's close handler, which saves its
                 // size; popups close with their opener.
                 app.quitting.set(true);
+                quick_ask::remember_size(&app);
                 for (window, _) in app.main_windows() {
                     window.close();
                 }

@@ -81,6 +81,13 @@ its source and the date it was checked. When one changes, edit it in place.
   background mode keep receiving web notifications. `visibilityState` is a
   quick way to tell over `debug-eval` whether a window is on screen.
 
+- A key the page does not handle comes back to GTK: on GTK 4,
+  `PageClientImpl::doneWithKeyEvent` re-queues an unhandled keydown with
+  `webkitWebViewBasePropagateKeyEvent` (`gdk_display_put_event`), so a
+  bubble-phase controller on the window sees it; a key the page handled
+  (`preventDefault`) does not come back. Arrow keys are always treated as
+  handled (WebKit source at tag `webkitgtk-2.54.1`, read 2026-10-08).
+
 ## Graphics on this laptop
 
 - AMD Cezanne iGPU (`/dev/dri/renderD128`, radeonsi) drives the session;
