@@ -25,7 +25,7 @@ impl App {
     pub fn new(config: Config, config_path: PathBuf, config_writable: bool) -> Rc<Self> {
         let gtk = adw::Application::builder()
             .application_id(APP_ID)
-            .flags(gio::ApplicationFlags::HANDLES_OPEN)
+            .flags(gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::CAN_OVERRIDE_APP_ID)
             .build();
         gtk.add_main_option(
             "debug",
