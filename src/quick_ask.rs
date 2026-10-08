@@ -101,8 +101,8 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
     toasts.set_child(Some(&content));
 
     let header = adw::HeaderBar::new();
-    let move_to_window = gtk::Button::from_icon_name("window-new-symbolic");
-    move_to_window.set_tooltip_text(Some("Continue in Main Window"));
+    let move_to_window =
+        crate::window::icon_button("window-new-symbolic", "Continue in Main Window");
     header.pack_start(&move_to_window);
 
     let toolbar = adw::ToolbarView::new();
@@ -116,6 +116,8 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
             .title("Quick Ask")
             .default_width(config.quick_ask.width)
             .default_height(config.quick_ask.height)
+            .width_request(crate::window::MIN_SIZE.0)
+            .height_request(crate::window::MIN_SIZE.1)
             .content(&toolbar)
             .build()
     };
@@ -185,7 +187,7 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
     window
 }
 
-fn view_of(window: &adw::ApplicationWindow) -> Option<webkit::WebView> {
+pub fn view_of(window: &adw::ApplicationWindow) -> Option<webkit::WebView> {
     let toolbar = window.content()?.downcast::<adw::ToolbarView>().ok()?;
     let toasts = toolbar.content()?.downcast::<adw::ToastOverlay>().ok()?;
     tab::view_of(&toasts.child()?)

@@ -32,7 +32,37 @@ pub fn new_view(app: &Rc<App>, related: Option<&webkit::WebView>) -> webkit::Web
         None => builder.network_session(&engine.session).build(),
     };
     wire(app, &view, related.is_some());
+    follow_style(&view);
     view
+}
+
+/// Paints the view's background in the current light or dark style, and
+/// again whenever it changes, so a loading page never flashes white in
+/// dark mode.
+fn follow_style(view: &webkit::WebView) {
+    let style = adw::StyleManager::default();
+    paint(view, style.is_dark());
+    let handler = style.connect_dark_notify(glib::clone!(
+        #[weak]
+        view,
+        move |style| paint(&view, style.is_dark())
+    ));
+    let handler = std::cell::Cell::new(Some(handler));
+    view.connect_destroy(move |_| {
+        if let Some(handler) = handler.take() {
+            adw::StyleManager::default().disconnect(handler);
+        }
+    });
+}
+
+fn paint(view: &webkit::WebView, dark: bool) {
+    // libadwaita's window background in each style.
+    let rgba = if dark {
+        gdk::RGBA::new(0.133, 0.133, 0.149, 1.0)
+    } else {
+        gdk::RGBA::new(0.98, 0.98, 0.98, 1.0)
+    };
+    view.set_background_color(&rgba);
 }
 
 fn wire(app: &Rc<App>, view: &webkit::WebView, in_popup: bool) {

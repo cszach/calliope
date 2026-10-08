@@ -18,8 +18,7 @@ pub fn attach(app: &Rc<App>, opener: &webkit::WebView, view: &webkit::WebView) {
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&title));
 
-    let open_button = gtk::Button::from_icon_name("external-link-symbolic");
-    open_button.set_tooltip_text(Some("Open in Browser"));
+    let open_button = crate::window::icon_button("external-link-symbolic", "Open in Browser");
     open_button.connect_clicked(glib::clone!(
         #[weak]
         view,
@@ -40,6 +39,8 @@ pub fn attach(app: &Rc<App>, opener: &webkit::WebView, view: &webkit::WebView) {
         .application(&app.gtk)
         .default_width(DEFAULT_SIZE.0)
         .default_height(DEFAULT_SIZE.1)
+        .width_request(crate::window::MIN_SIZE.0)
+        .height_request(crate::window::MIN_SIZE.1)
         .content(&toolbar)
         // A sign-in popup has no purpose once its opener is gone, and would
         // otherwise keep the app running.

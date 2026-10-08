@@ -53,6 +53,12 @@ const SHORTCUTS: &[(&str, &[&str], &str, &str)] = &[
     ),
     ("win.fullscreen", &["F11"], "Fullscreen", "View"),
     (
+        "app.preferences",
+        &["<Control>comma"],
+        "Preferences",
+        "General",
+    ),
+    (
         "win.show-shortcuts",
         &["<Control>question"],
         "Keyboard shortcuts",

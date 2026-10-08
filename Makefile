@@ -47,6 +47,7 @@ test:
 
 validate: $(GENERATED)
 	desktop-file-validate $(GENDIR)/$(APP_ID).desktop $(GENDIR)/$(APP_ID).autostart.desktop
+	appstreamcli validate --no-net data/$(APP_ID).metainfo.xml
 
 # FORCE: the output depends on PREFIX as well as the template.
 $(GENDIR)/%: data/%.in FORCE
@@ -57,6 +58,7 @@ install: build $(GENERATED)
 	install -Dm755 target/release/calliope $(BINDIR)/calliope
 	install -Dm644 $(GENDIR)/$(APP_ID).desktop $(DATADIR)/applications/$(APP_ID).desktop
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
+	install -Dm644 data/$(APP_ID).metainfo.xml $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
 	@# Prefer the official icon when `make fetch-icon` has downloaded it.
 	@# GNOME Shell draws notification headers with the symbolic icon, so the
 	@# neutral one goes too; Shell then falls back to the official icon.
@@ -95,6 +97,7 @@ uninstall: disable-autostart
 	rm -f $(BINDIR)/calliope
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
+	rm -f $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
 	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg
 	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)
 	-update-desktop-database -q $(DATADIR)/applications

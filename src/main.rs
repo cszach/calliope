@@ -11,6 +11,7 @@ mod paths;
 mod permissions;
 mod policy;
 mod popup;
+mod preferences;
 mod prompt;
 mod quick_ask;
 mod search_provider;
