@@ -30,6 +30,15 @@ pub fn create(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
     window
 }
 
+/// Opens `uri` in a new tab of the current window, or of a new window, shows
+/// the window, and returns the tab's view.
+pub fn show_in_tab(app: &Rc<App>, uri: &str) -> Option<webkit::WebView> {
+    let (window, tabs) = app.target_window().unwrap_or_else(|| build(app));
+    let page = add_tab(app, &tabs, uri);
+    window.present();
+    tab::view_of(&page.child())
+}
+
 /// Adds a tab loading `uri` and selects it.
 pub fn add_tab(app: &Rc<App>, tabs: &adw::TabView, uri: &str) -> adw::TabPage {
     let child = tab::new(app, None, Some(uri));

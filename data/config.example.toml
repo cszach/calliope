@@ -28,7 +28,8 @@ composer_selector = ""
 [quick_ask]
 width = 480
 height = 640
-# Press Enter automatically after filling a prompt from the search provider.
+# Press Enter automatically after typing in a prompt from the search provider
+# or `muse --ask`.
 submit = false
 
 [search_provider]
