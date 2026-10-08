@@ -11,8 +11,12 @@ use glib::prelude::ToVariant;
 
 use crate::app::App;
 
+/// Linux file names are limited to 255 bytes; this leaves room for the
+/// " (N)" that `unique_path` may add.
+pub const MAX_NAME_BYTES: usize = 240;
+
 /// A file name safe to create in a directory: no path separators, no
-/// control characters, not hidden, not empty.
+/// control characters, not hidden, not empty, and short enough to create.
 pub fn sanitize(suggested: &str) -> String {
     let base = suggested.rsplit(['/', '\\']).next().unwrap_or_default();
     let cleaned: String = base
@@ -21,10 +25,25 @@ pub fn sanitize(suggested: &str) -> String {
         .collect();
     let cleaned = cleaned.trim().trim_start_matches('.').trim();
     if cleaned.is_empty() {
-        "download".to_owned()
-    } else {
-        cleaned.to_owned()
+        return "download".to_owned();
     }
+    shorten(cleaned)
+}
+
+/// Cuts the stem, never the extension, to fit `MAX_NAME_BYTES`, at a
+/// character boundary.
+fn shorten(name: &str) -> String {
+    if name.len() <= MAX_NAME_BYTES {
+        return name.to_owned();
+    }
+    let (stem, ext) = split_extension(name);
+    let ext = if ext.len() > 16 { "" } else { ext };
+    let budget = MAX_NAME_BYTES - ext.len();
+    let mut cut = budget.min(stem.len());
+    while !stem.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    format!("{}{ext}", &stem[..cut])
 }
 
 /// `dir/name`, or `dir/stem (N).ext` for the first N that is free.
@@ -75,6 +94,10 @@ pub fn attach(app: &Rc<App>) {
             download.connect_decide_destination(move |download, suggested| {
                 let dir = glib::user_special_dir(glib::UserDirectory::Downloads)
                     .unwrap_or_else(glib::home_dir);
+                // The folder may have been deleted; WebKit will not create it.
+                if let Err(e) = std::fs::create_dir_all(&dir) {
+                    log::warn!("cannot create {}: {e}", dir.display());
+                }
                 let path = unique_path(&dir, &sanitize(suggested), |p| {
                     p.exists() || r.0.borrow().contains(p)
                 });
@@ -163,6 +186,14 @@ mod tests {
         assert_eq!(sanitize(".bashrc"), "bashrc");
         assert_eq!(sanitize("  "), "download");
         assert_eq!(sanitize("a\u{7}b.txt"), "a_b.txt");
+    }
+
+    #[test]
+    fn long_names_are_shortened_keeping_the_extension() {
+        let name = sanitize(&format!("{}.pdf", "é".repeat(200)));
+        assert!(name.len() <= MAX_NAME_BYTES, "{} bytes", name.len());
+        assert!(name.ends_with(".pdf"));
+        assert!(name.starts_with('é'));
     }
 
     #[test]
