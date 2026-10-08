@@ -1,5 +1,6 @@
-//! One tab: a web view, a load progress bar, and the page shown instead of
-//! the view when the web process crashes or muse.ai cannot be reached.
+//! One tab: a web view, a load progress bar, the page shown instead of the
+//! view when the web process crashes or muse.ai cannot be reached, and a
+//! banner for pages that need WebRTC, which this WebKitGTK lacks.
 
 use std::rc::Rc;
 
@@ -35,9 +36,15 @@ pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> g
     progress.set_can_target(false);
     progress.set_visible(false);
 
-    let root = gtk::Overlay::new();
-    root.set_child(Some(&stack));
-    root.add_overlay(&progress);
+    let overlay = gtk::Overlay::new();
+    overlay.set_child(Some(&stack));
+    overlay.add_overlay(&progress);
+
+    let banner = webview::webrtc_banner(&view);
+
+    let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root.append(&banner);
+    root.append(&overlay);
 
     reload.connect_clicked(glib::clone!(
         #[weak]
@@ -166,7 +173,10 @@ pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> g
 
 /// The web view inside a tab built by [`new`].
 pub fn view_of(tab: &gtk::Widget) -> Option<webkit::WebView> {
-    tab.downcast_ref::<gtk::Overlay>()?
+    tab.downcast_ref::<gtk::Box>()?
+        .last_child()?
+        .downcast::<gtk::Overlay>()
+        .ok()?
         .child()?
         .downcast::<gtk::Stack>()
         .ok()?
@@ -184,7 +194,7 @@ pub fn title_of(view: &webkit::WebView) -> String {
 
 /// The tab page holding `root`, wherever it currently lives: tabs move
 /// between windows when dragged.
-fn page_of(root: &gtk::Overlay) -> Option<adw::TabPage> {
+fn page_of(root: &gtk::Box) -> Option<adw::TabPage> {
     let tab_view = root
         .ancestor(adw::TabView::static_type())?
         .downcast::<adw::TabView>()

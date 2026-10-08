@@ -30,7 +30,12 @@ fn main() -> glib::ExitCode {
     let (config, config_writable) = Config::load(&config_path);
 
     // WebKit, GStreamer and GTK read these once, when they start.
-    let changes = startup_env::changes(&config.webkit.env, |key| std::env::var_os(key).is_some());
+    // Read here rather than through GApplication: it must act before GTK
+    // starts, and a second instance only forwards to the first.
+    let safe_graphics = std::env::args_os().any(|a| a == "--safe-graphics");
+    let changes = startup_env::changes(&config.webkit.env, safe_graphics, |key| {
+        std::env::var_os(key).is_some()
+    });
     for (key, value) in changes {
         // SAFETY: no other threads exist yet.
         unsafe {

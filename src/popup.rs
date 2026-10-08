@@ -33,6 +33,7 @@ pub fn attach(app: &Rc<App>, opener: &webkit::WebView, view: &webkit::WebView) {
 
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
+    toolbar.add_top_bar(&webview::webrtc_banner(view));
     toolbar.set_content(Some(view));
 
     let window = adw::Window::builder()
