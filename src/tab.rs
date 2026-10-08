@@ -16,7 +16,6 @@ const ERROR: &str = "error";
 /// Builds a tab around `view`, or a new view, and starts loading `uri`.
 pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> gtk::Widget {
     let view = view.unwrap_or_else(|| webview::new_view(app, None));
-    app.style_view(&view);
 
     let status = adw::StatusPage::new();
     let reload = gtk::Button::with_mnemonic("_Reload");

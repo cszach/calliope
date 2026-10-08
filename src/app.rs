@@ -12,7 +12,9 @@ use crate::config::Config;
 use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::notifications;
-use crate::{downloads, hotkey, policy, quick_ask, search_provider, shortcuts, tab, window};
+use crate::{
+    downloads, hotkey, policy, preferences, quick_ask, search_provider, shortcuts, tab, window,
+};
 
 const REPO_URL: &str = "https://github.com/cszach/calliope";
 /// How long a D-Bus-started Calliope with no window waits for the next call.
@@ -301,18 +303,6 @@ impl App {
         }
     }
 
-    /// Paints the view's background in the current light or dark style, so
-    /// a new tab does not flash white in dark mode.
-    pub fn style_view(&self, view: &webkit::WebView) {
-        let dark = adw::StyleManager::default().is_dark();
-        let rgba = if dark {
-            gdk::RGBA::new(0.133, 0.133, 0.149, 1.0)
-        } else {
-            gdk::RGBA::WHITE
-        };
-        view.set_background_color(&rgba);
-    }
-
     fn connect_signals(self: &Rc<Self>) {
         let app = Rc::clone(self);
         self.gtk.connect_handle_local_options(move |gtk, options| {
@@ -401,13 +391,6 @@ impl App {
             let reaper = Rc::clone(&app);
             app.gtk
                 .connect_window_removed(move |_, _| quick_ask::reap(&reaper));
-
-            let styled = Rc::clone(&app);
-            adw::StyleManager::default().connect_dark_notify(move |_| {
-                for view in styled.views() {
-                    styled.style_view(&view);
-                }
-            });
         });
 
         let app = Rc::clone(self);
@@ -523,6 +506,13 @@ impl App {
             .build();
 
         let app = Rc::clone(self);
+        let preferences = gio::ActionEntry::builder("preferences")
+            .activate(move |_: &GtkApp, _, _| {
+                preferences::dialog(&app).present(app.target_window().map(|(w, _)| w).as_ref());
+            })
+            .build();
+
+        let app = Rc::clone(self);
         let about = gio::ActionEntry::builder("about")
             .activate(move |_: &GtkApp, _, _| {
                 let dialog = adw::AboutDialog::builder()
@@ -604,6 +594,7 @@ impl App {
             quick_ask,
             ask,
             set_up_shortcut,
+            preferences,
             about,
             clear,
             web_notification,

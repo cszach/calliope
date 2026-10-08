@@ -9,6 +9,9 @@ use webkit::prelude::*;
 use crate::app::App;
 use crate::{shortcuts, tab, webview, zoom};
 
+/// The smallest size every window supports: the GNOME HIG's phone size.
+pub const MIN_SIZE: (i32, i32) = (360, 294);
+
 /// Opens a window with one tab per URI, or one tab on the start page.
 pub fn open(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
     let window = create(app, uris);
@@ -58,14 +61,14 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&title));
 
-    let new_tab = gtk::Button::from_icon_name("tab-new-symbolic");
-    new_tab.set_tooltip_text(Some("New Tab"));
+    let new_tab = icon_button("tab-new-symbolic", "New Tab");
     new_tab.set_action_name(Some("win.new-tab"));
     header.pack_start(&new_tab);
 
     let menu_button = gtk::MenuButton::new();
     menu_button.set_icon_name("open-menu-symbolic");
     menu_button.set_tooltip_text(Some("Main Menu"));
+    menu_button.update_property(&[gtk::accessible::Property::Label("Main Menu")]);
     menu_button.set_primary(true);
     menu_button.set_menu_model(Some(&main_menu()));
     header.pack_end(&menu_button);
@@ -82,6 +85,8 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
             .title("Calliope")
             .default_width(config.window.width)
             .default_height(config.window.height)
+            .width_request(MIN_SIZE.0)
+            .height_request(MIN_SIZE.1)
             .content(&toolbar)
             .build();
         if config.window.maximized {
@@ -160,6 +165,15 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
     (window, tabs)
 }
 
+/// An icon-only button, with the tooltip and accessible name the HIG asks
+/// for, since it has no visible label for a screen reader to use.
+pub fn icon_button(icon: &str, label: &str) -> gtk::Button {
+    let button = gtk::Button::from_icon_name(icon);
+    button.set_tooltip_text(Some(label));
+    button.update_property(&[gtk::accessible::Property::Label(label)]);
+    button
+}
+
 fn main_menu() -> gio::Menu {
     let menu = gio::Menu::new();
 
@@ -175,17 +189,12 @@ fn main_menu() -> gio::Menu {
     zoom.append(Some("_Reset Zoom"), Some("win.zoom-reset"));
     menu.append_section(None, &zoom);
 
-    let app = gio::Menu::new();
-    app.append(Some("Run in _Background"), Some("app.background-mode"));
-    app.append(Some("Quick Ask _Shortcut…"), Some("app.quick-ask-shortcut"));
-    menu.append_section(None, &app);
-
     let page = gio::Menu::new();
     page.append(Some("Open in _Browser"), Some("win.open-in-browser"));
-    page.append(Some("_Clear Site Data…"), Some("app.clear-site-data"));
     menu.append_section(None, &page);
 
     let about = gio::Menu::new();
+    about.append(Some("_Preferences"), Some("app.preferences"));
     about.append(Some("_Keyboard Shortcuts"), Some("win.show-shortcuts"));
     about.append(Some("_About Calliope"), Some("app.about"));
     menu.append_section(None, &about);
