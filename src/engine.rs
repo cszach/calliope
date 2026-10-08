@@ -11,19 +11,35 @@ use crate::paths;
 pub struct Engine {
     pub session: webkit::NetworkSession,
     pub context: webkit::WebContext,
-    pub content: webkit::UserContentManager,
+    scripts: Vec<webkit::UserScript>,
     pub settings: webkit::Settings,
     pub policies: webkit::WebsitePolicies,
 }
 
-const USER_SCRIPTS: &[&str] = &[
-    include_str!("../data/js/detect-webrtc.js"),
-    include_str!("../data/js/fill-prompt.js"),
+/// The script message `detect-webrtc.js` posts.
+pub const WEBRTC_MESSAGE: &str = "museWebRTC";
+
+const MUSE_ONLY: &[&str] = &["https://muse.ai/*", "https://*.muse.ai/*"];
+
+/// User scripts and the pages they run on (empty: every page).
+const USER_SCRIPTS: &[(&str, &[&str])] = &[
+    (include_str!("../data/js/detect-webrtc.js"), &[]),
+    (include_str!("../data/js/fill-prompt.js"), MUSE_ONLY),
 ];
 
-const SCRIPT_ALLOW_LIST: &[&str] = &["https://muse.ai/*", "https://*.muse.ai/*"];
-
 impl Engine {
+    /// A content manager for one view. Each view has its own because a
+    /// script message does not say which view sent it; with one per view,
+    /// the receiver knows.
+    pub fn content_manager(&self) -> webkit::UserContentManager {
+        let content = webkit::UserContentManager::new();
+        for script in &self.scripts {
+            content.add_script(script);
+        }
+        content.register_script_message_handler(WEBRTC_MESSAGE, Some(SCRIPT_WORLD));
+        content
+    }
+
     pub fn new(app: &Rc<App>) -> Self {
         let data_dir = paths::data_dir();
         let cache_dir = paths::cache_dir();
@@ -71,17 +87,19 @@ impl Engine {
             ctx.initialize_notification_permissions(&allowed, &denied);
         });
 
-        let content = webkit::UserContentManager::new();
-        for source in USER_SCRIPTS {
-            content.add_script(&webkit::UserScript::for_world(
-                source,
-                webkit::UserContentInjectedFrames::TopFrame,
-                webkit::UserScriptInjectionTime::Start,
-                SCRIPT_WORLD,
-                SCRIPT_ALLOW_LIST,
-                &[],
-            ));
-        }
+        let scripts = USER_SCRIPTS
+            .iter()
+            .map(|(source, allow)| {
+                webkit::UserScript::for_world(
+                    source,
+                    webkit::UserContentInjectedFrames::TopFrame,
+                    webkit::UserScriptInjectionTime::Start,
+                    SCRIPT_WORLD,
+                    allow,
+                    &[],
+                )
+            })
+            .collect();
 
         let config = app.config();
         let debug = app.debug();
@@ -112,7 +130,7 @@ impl Engine {
         Self {
             session,
             context,
-            content,
+            scripts,
             settings,
             policies,
         }

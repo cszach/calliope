@@ -18,7 +18,7 @@ pub fn new_view(app: &Rc<App>, related: Option<&webkit::WebView>) -> webkit::Web
     let engine = app.engine();
     let builder = webkit::WebView::builder()
         .web_context(&engine.context)
-        .user_content_manager(&engine.content)
+        .user_content_manager(&engine.content_manager())
         .settings(&engine.settings)
         .website_policies(&engine.policies)
         .zoom_level(app.config().zoom_level)

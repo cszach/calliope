@@ -1,5 +1,6 @@
-//! One tab: a web view, a load progress bar, and the page shown instead of
-//! the view when the web process crashes or muse.ai cannot be reached.
+//! One tab: a web view, a load progress bar, the page shown instead of the
+//! view when the web process crashes or muse.ai cannot be reached, and a
+//! banner for pages that need WebRTC, which this WebKitGTK lacks.
 
 use std::rc::Rc;
 
@@ -7,6 +8,7 @@ use adw::prelude::*;
 use webkit::prelude::*;
 
 use crate::app::App;
+use crate::engine::WEBRTC_MESSAGE;
 use crate::webview;
 
 const WEB: &str = "web";
@@ -35,9 +37,40 @@ pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> g
     progress.set_can_target(false);
     progress.set_visible(false);
 
-    let root = gtk::Overlay::new();
-    root.set_child(Some(&stack));
-    root.add_overlay(&progress);
+    let overlay = gtk::Overlay::new();
+    overlay.set_child(Some(&stack));
+    overlay.add_overlay(&progress);
+
+    let banner =
+        adw::Banner::new("This page needs WebRTC, which Muse’s web engine does not support yet");
+    banner.set_button_label(Some("Open in _Browser"));
+
+    let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    root.append(&banner);
+    root.append(&overlay);
+
+    banner.connect_button_clicked(glib::clone!(
+        #[weak]
+        view,
+        move |banner| {
+            if let Some(uri) = view.uri() {
+                webview::open_external(banner, &uri);
+            }
+        }
+    ));
+    if let Some(content) = view.user_content_manager() {
+        content.connect_script_message_received(
+            Some(WEBRTC_MESSAGE),
+            glib::clone!(
+                #[weak]
+                banner,
+                move |_, _| {
+                    log::info!("page needs WebRTC; offering the browser");
+                    banner.set_revealed(true);
+                }
+            ),
+        );
+    }
 
     reload.connect_clicked(glib::clone!(
         #[weak]
@@ -101,9 +134,12 @@ pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> g
     view.connect_load_changed(glib::clone!(
         #[weak]
         stack,
+        #[weak]
+        banner,
         move |view, event| {
             if event == webkit::LoadEvent::Committed {
                 stack.set_visible_child_name(WEB);
+                banner.set_revealed(false);
             }
             if matches!(
                 event,
@@ -166,7 +202,10 @@ pub fn new(app: &Rc<App>, view: Option<webkit::WebView>, uri: Option<&str>) -> g
 
 /// The web view inside a tab built by [`new`].
 pub fn view_of(tab: &gtk::Widget) -> Option<webkit::WebView> {
-    tab.downcast_ref::<gtk::Overlay>()?
+    tab.downcast_ref::<gtk::Box>()?
+        .last_child()?
+        .downcast::<gtk::Overlay>()
+        .ok()?
         .child()?
         .downcast::<gtk::Stack>()
         .ok()?
@@ -184,7 +223,7 @@ pub fn title_of(view: &webkit::WebView) -> String {
 
 /// The tab page holding `root`, wherever it currently lives: tabs move
 /// between windows when dragged.
-fn page_of(root: &gtk::Overlay) -> Option<adw::TabPage> {
+fn page_of(root: &gtk::Box) -> Option<adw::TabPage> {
     let tab_view = root
         .ancestor(adw::TabView::static_type())?
         .downcast::<adw::TabView>()

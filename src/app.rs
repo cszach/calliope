@@ -94,6 +94,16 @@ impl App {
             "Open the quick-ask window with TEXT typed in",
             Some("TEXT"),
         );
+        // Applied in `main` before GTK starts; declared so GApplication
+        // accepts it and lists it in --help.
+        gtk.add_main_option(
+            "safe-graphics",
+            glib::Char::from(0u8),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::None,
+            "Work around rendering glitches and crashes (slower)",
+            None,
+        );
         gtk.add_main_option(
             "new-window",
             glib::Char::from(b'n'),

@@ -36,6 +36,15 @@ its source and the date it was checked. When one changes, edit it in place.
   locally 2026-10-08: no `webrtcbin` string in `libwebkitgtk-6.0.so.4.19.4`,
   no PeerConnection feature in `Settings.get_all_features()`.
   `enable-webrtc` is a no-op; `libnice-gstreamer1` is not needed.
+- `UserContentManager::script-message-received` does not say which view
+  sent a message, so each view gets its own content manager (cheap; the
+  user scripts are shared objects). A page that only checks
+  `typeof RTCPeerConnection` or `'RTCPeerConnection' in window` sees no
+  change from the WebRTC detector, which only listens for `error` and
+  `unhandledrejection` events naming WebRTC classes; an isolated-world
+  listener receives both for main-world failures (checked 2026-10-08 with
+  local test pages). Cross-origin scripts without CORS report only
+  "Script error.", which the detector cannot match.
 - getUserMedia microphone capture works without WebRTC and goes straight to
   PipeWire/PulseAudio; cameras go through the xdg-desktop-portal Camera
   interface. Internal feature `GetUserMediaRequiresFocus` is on, so capture
