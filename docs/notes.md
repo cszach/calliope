@@ -143,6 +143,12 @@ its source and the date it was checked. When one changes, edit it in place.
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.
 - Zach's custom keybinding slot `custom0` is taken (Ctrl+Alt+A runs kitty).
+- A notification's header icon is the app's desktop-file icon drawn with
+  `-st-icon-style: symbolic` and desaturated (`.message-source-icon` in the
+  Shell theme, `messageList.js`), so Shell picks `<app-id>-symbolic` when
+  one exists and otherwise a grey version of the full-colour icon. The
+  notification's own `gicon` shows in full colour in the body (checked
+  2026-10-08).
 - GNOME Shell 50 calls a provider's `ActivateResult(id, terms, timestamp)`
   with no activation token (`remoteSearch.js`, extracted from
   `libshell-18.so`), so presenting an existing window from it may only
