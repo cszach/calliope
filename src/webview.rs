@@ -6,6 +6,7 @@ use std::rc::Rc;
 use webkit::prelude::*;
 
 use crate::app::App;
+use crate::engine::WEBRTC_MESSAGE;
 use crate::notifications;
 use crate::permissions;
 use crate::policy::{self, Disposition, Navigation};
@@ -108,6 +109,44 @@ fn decide_policy(
 }
 
 /// Hands a URI to the default browser or handler.
+/// A banner, hidden until the page in `view` fails for want of WebRTC
+/// (`detect-webrtc.js`), offering to open the page in the default browser.
+/// It hides again when the view moves to another address.
+pub fn webrtc_banner(view: &webkit::WebView) -> adw::Banner {
+    let banner =
+        adw::Banner::new("This page needs WebRTC, which Muse’s web engine does not support yet");
+    banner.set_button_label(Some("Open in _Browser"));
+    banner.connect_button_clicked(glib::clone!(
+        #[weak]
+        view,
+        move |banner| {
+            if let Some(uri) = view.uri() {
+                open_external(banner, &uri);
+            }
+        }
+    ));
+    if let Some(content) = view.user_content_manager() {
+        content.connect_script_message_received(
+            Some(WEBRTC_MESSAGE),
+            glib::clone!(
+                #[weak]
+                banner,
+                move |_, _| {
+                    log::info!("page needs WebRTC; offering the browser");
+                    banner.set_revealed(true);
+                }
+            ),
+        );
+    }
+    // Covers single-page apps too, which change address without a load.
+    view.connect_uri_notify(glib::clone!(
+        #[weak]
+        banner,
+        move |_| banner.set_revealed(false)
+    ));
+    banner
+}
+
 pub fn open_external(widget: &impl IsA<gtk::Widget>, uri: &str) {
     let parent = widget.root().and_downcast::<gtk::Window>();
     let uri_owned = uri.to_owned();

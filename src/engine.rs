@@ -21,10 +21,19 @@ pub const WEBRTC_MESSAGE: &str = "museWebRTC";
 
 const MUSE_ONLY: &[&str] = &["https://muse.ai/*", "https://*.muse.ai/*"];
 
-/// User scripts and the pages they run on (empty: every page).
-const USER_SCRIPTS: &[(&str, &[&str])] = &[
-    (include_str!("../data/js/detect-webrtc.js"), &[]),
-    (include_str!("../data/js/fill-prompt.js"), MUSE_ONLY),
+/// User scripts, the frames they run in, and the pages they run on (empty:
+/// every page). WebRTC often lives in an embedded call iframe.
+const USER_SCRIPTS: &[(&str, webkit::UserContentInjectedFrames, &[&str])] = &[
+    (
+        include_str!("../data/js/detect-webrtc.js"),
+        webkit::UserContentInjectedFrames::AllFrames,
+        &[],
+    ),
+    (
+        include_str!("../data/js/fill-prompt.js"),
+        webkit::UserContentInjectedFrames::TopFrame,
+        MUSE_ONLY,
+    ),
 ];
 
 impl Engine {
@@ -89,10 +98,10 @@ impl Engine {
 
         let scripts = USER_SCRIPTS
             .iter()
-            .map(|(source, allow)| {
+            .map(|(source, frames, allow)| {
                 webkit::UserScript::for_world(
                     source,
-                    webkit::UserContentInjectedFrames::TopFrame,
+                    *frames,
                     webkit::UserScriptInjectionTime::Start,
                     SCRIPT_WORLD,
                     allow,

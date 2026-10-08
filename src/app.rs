@@ -320,6 +320,7 @@ impl App {
             if options.contains("debug") {
                 app.debug_flag.set(true);
             }
+            let safe_graphics = options.contains("safe-graphics");
             let background = options.contains("background");
             let new_window = options.contains("new-window");
             let quick_ask = options.contains("quick-ask");
@@ -328,7 +329,7 @@ impl App {
                 .ok()
                 .flatten()
                 .filter(|t| !t.trim().is_empty());
-            if !background && !new_window && !quick_ask && ask.is_none() {
+            if !safe_graphics && !background && !new_window && !quick_ask && ask.is_none() {
                 return ControlFlow::Continue(());
             }
             // Find out whether Muse is already running; registering runs
@@ -338,14 +339,22 @@ impl App {
                 return ControlFlow::Break(glib::ExitCode::FAILURE);
             }
             if gtk.is_remote() {
+                if safe_graphics {
+                    log::warn!(
+                        "--safe-graphics only applies when Muse starts; quit the running \
+                         Muse (Ctrl+Q) and run this again"
+                    );
+                }
                 if let Some(text) = &ask {
                     gtk.activate_action("ask", Some(&text.to_variant()));
                 } else if quick_ask {
                     gtk.activate_action("quick-ask", None);
                 } else if new_window {
                     gtk.activate_action("new-window", None);
-                } else {
+                } else if background {
                     gtk.change_action_state("background-mode", &true.to_variant());
+                } else {
+                    gtk.activate();
                 }
                 return ControlFlow::Break(glib::ExitCode::SUCCESS);
             }
