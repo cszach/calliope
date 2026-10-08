@@ -3,6 +3,8 @@
 //! fill is retried for a while; if it never appears the prompt goes to the
 //! clipboard instead.
 
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -12,12 +14,14 @@ use webkit::prelude::*;
 use crate::consts::SCRIPT_WORLD;
 
 const RETRY: Duration = Duration::from_millis(500);
+/// Slower checks while the page is off screen.
+const HIDDEN_RETRY: Duration = Duration::from_secs(2);
 const ATTEMPTS: u32 = 40;
 /// Consecutive checks that must find the text in place before the fill
 /// counts: the page may re-render and wipe an early fill.
 const STABLE_CHECKS: u32 = 3;
 /// Ten minutes of checks while the page is off screen.
-const HIDDEN_CHECKS: u32 = 1200;
+const HIDDEN_CHECKS: u32 = 300;
 
 /// What `__museEnsure` reported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,8 +58,13 @@ struct Progress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Next {
     Retry(Progress),
+    /// Off screen: check again, slowly.
+    Wait(Progress),
     Done,
+    /// The composer never appeared: hand the prompt over another way.
     GiveUp,
+    /// Off screen for too long: the user has moved on; stop quietly.
+    Abandon,
 }
 
 /// One step of the fill loop. `seen` is `None` when the script could not
@@ -63,8 +72,8 @@ enum Next {
 fn advance(progress: Progress, seen: Option<Seen>) -> Next {
     if seen == Some(Seen::Hidden) {
         return match progress.hidden_left {
-            0 | 1 => Next::GiveUp,
-            n => Next::Retry(Progress {
+            0 | 1 => Next::Abandon,
+            n => Next::Wait(Progress {
                 hidden_left: n - 1,
                 stable: 0,
                 ..progress
@@ -121,7 +130,13 @@ fn json(s: &str) -> String {
 /// Types `text` into the composer of `view`, retrying until it exists and
 /// the text stays put, then presses Enter if `submit`.
 pub fn fill(view: &webkit::WebView, text: &str, submit: bool, selector: &str) {
+    let id = NEXT_JOB.get();
+    NEXT_JOB.set(id + 1);
+    let key = view_key(view);
+    LATEST.with_borrow_mut(|latest| latest.insert(key, id));
     let job = Rc::new(Job {
+        id,
+        key,
         view: view.downgrade(),
         script: script(text, selector),
         submit: submit.then(|| submit_script(selector)),
@@ -137,15 +152,43 @@ pub fn fill(view: &webkit::WebView, text: &str, submit: bool, selector: &str) {
     );
 }
 
+thread_local! {
+    static NEXT_JOB: Cell<u64> = const { Cell::new(0) };
+    /// The newest fill per view. A newer fill supersedes an older one, so
+    /// two fills never fight over the composer.
+    static LATEST: RefCell<HashMap<usize, u64>> = RefCell::new(HashMap::new());
+}
+
+fn view_key(view: &webkit::WebView) -> usize {
+    view.as_ptr() as usize
+}
+
 struct Job {
+    id: u64,
+    key: usize,
     view: glib::WeakRef<webkit::WebView>,
     script: String,
     submit: Option<String>,
     text: String,
 }
 
+impl Job {
+    fn is_current(&self) -> bool {
+        LATEST.with_borrow(|latest| latest.get(&self.key) == Some(&self.id))
+    }
+
+    fn finish(&self) {
+        LATEST.with_borrow_mut(|latest| {
+            if latest.get(&self.key) == Some(&self.id) {
+                latest.remove(&self.key);
+            }
+        });
+    }
+}
+
 fn step(job: Rc<Job>, progress: Progress) {
-    let Some(view) = job.view.upgrade() else {
+    let Some(view) = job.view.upgrade().filter(|_| job.is_current()) else {
+        job.finish();
         return;
     };
     let script = job.script.clone();
@@ -157,12 +200,18 @@ fn step(job: Rc<Job>, progress: Progress) {
         move |result| {
             let seen = result.ok().and_then(|v| Seen::parse(&v.to_str()));
             log::debug!("prompt fill: {seen:?}, {progress:?}");
-            let Some(view) = job.view.upgrade() else {
+            let Some(view) = job.view.upgrade().filter(|_| job.is_current()) else {
+                job.finish();
                 return;
             };
             match advance(progress, seen) {
                 Next::Retry(next) => {
                     glib::timeout_add_local_once(RETRY, move || step(job, next));
+                    return;
+                }
+                Next::Wait(next) => {
+                    glib::timeout_add_local_once(HIDDEN_RETRY, move || step(job, next));
+                    return;
                 }
                 Next::Done => {
                     if let Some(submit) = &job.submit {
@@ -176,7 +225,9 @@ fn step(job: Rc<Job>, progress: Progress) {
                     }
                 }
                 Next::GiveUp => give_up(&view, &job.text),
+                Next::Abandon => log::info!("gave up typing a prompt into a page left off screen"),
             }
+            job.finish();
         },
     );
 }
@@ -268,7 +319,7 @@ mod tests {
     #[test]
     fn waiting_off_screen_spends_no_attempts() {
         let p = at(5, 2);
-        let Next::Retry(next) = advance(p, Some(Seen::Hidden)) else {
+        let Next::Wait(next) = advance(p, Some(Seen::Hidden)) else {
             panic!("should keep waiting");
         };
         assert_eq!(
@@ -279,7 +330,8 @@ mod tests {
             hidden_left: 1,
             ..p
         };
-        assert_eq!(advance(tired, Some(Seen::Hidden)), Next::GiveUp);
+        // Nobody looked: stop quietly rather than take the clipboard.
+        assert_eq!(advance(tired, Some(Seen::Hidden)), Next::Abandon);
     }
 
     #[test]

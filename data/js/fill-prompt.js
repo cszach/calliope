@@ -57,11 +57,17 @@
 
   const contentOf = (el) => (el.isContentEditable ? el.innerText : el.value) || '';
 
+  // What the composer showed right after our last fill: an editor may turn
+  // typed text into its own form (smart quotes, link chips), which still
+  // counts as present.
+  const filled = new WeakMap();
+
   window.__museEnsure = (text, selector) => {
     if (document.visibilityState === 'hidden') return 'hidden';
     const el = findComposer(selector);
     if (!el) return 'missing';
-    if (normalize(contentOf(el)) === normalize(text)) return 'present';
+    const now = normalize(contentOf(el));
+    if (now && (now === normalize(text) || now === filled.get(el))) return 'present';
     el.focus();
     if (el.isContentEditable) {
       document.execCommand('selectAll', false, null);
@@ -72,6 +78,7 @@
     } else {
       setNativeValue(el, text);
     }
+    filled.set(el, normalize(contentOf(el)));
     return 'filled';
   };
 

@@ -368,10 +368,13 @@ impl App {
             shortcuts::install(&app.gtk, app.debug());
             hotkey::init(&app);
             search_provider::register(&app);
-            // Started by GNOME Shell just to answer a search: stay up between
-            // keystrokes instead of exiting as soon as a call returns.
+            // Started over D-Bus, possibly by GNOME Shell just to answer a
+            // search: stay up between keystrokes instead of exiting as soon
+            // as a call returns. Once a window opens, exit normally again.
             if app.gtk.flags().contains(gio::ApplicationFlags::IS_SERVICE) {
                 app.gtk.set_inactivity_timeout(SERVICE_IDLE_MS);
+                app.gtk
+                    .connect_window_added(|gtk, _| gtk.set_inactivity_timeout(0));
             }
 
             // A hidden quick-ask window must not keep Muse alive once the
