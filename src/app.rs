@@ -193,16 +193,19 @@ impl App {
             .collect()
     }
 
-    /// Every web view in every main window.
+    /// Every web view in every main window, and the quick-ask view.
     fn views(&self) -> Vec<webkit::WebView> {
-        self.main_windows()
+        let mut views: Vec<_> = self
+            .main_windows()
             .iter()
             .flat_map(|(_, tabs)| {
                 (0..tabs.n_pages())
                     .filter_map(|i| tab::view_of(&tabs.nth_page(i).child()))
                     .collect::<Vec<_>>()
             })
-            .collect()
+            .collect();
+        views.extend(self.quick_ask_window().and_then(|w| quick_ask::view_of(&w)));
+        views
     }
 
     /// The main window to act on: the focused one, else the newest one on

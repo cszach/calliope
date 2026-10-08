@@ -187,7 +187,7 @@ fn build(app: &Rc<App>) -> adw::ApplicationWindow {
     window
 }
 
-fn view_of(window: &adw::ApplicationWindow) -> Option<webkit::WebView> {
+pub fn view_of(window: &adw::ApplicationWindow) -> Option<webkit::WebView> {
     let toolbar = window.content()?.downcast::<adw::ToolbarView>().ok()?;
     let toasts = toolbar.content()?.downcast::<adw::ToastOverlay>().ok()?;
     tab::view_of(&toasts.child()?)

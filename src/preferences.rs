@@ -1,24 +1,62 @@
 //! The Preferences dialog: the settings people change, saved to the config
 //! file as they change.
 
+use std::cell::Cell;
 use std::rc::Rc;
+use std::time::Duration;
 
 use adw::prelude::*;
 
 use crate::app::App;
 use crate::policy;
 
+/// How long a spin row must stay still before its value is applied, so
+/// holding a button does not rewrite the config file on every step.
+const SETTLE: Duration = Duration::from_millis(400);
+
+/// Runs `apply` once `row` has stopped changing for [`SETTLE`].
+fn on_settled(row: &adw::SpinRow, apply: impl Fn(f64) + 'static) {
+    let pending: Rc<Cell<Option<glib::SourceId>>> = Rc::default();
+    let apply = Rc::new(apply);
+    row.connect_value_notify(move |row| {
+        if let Some(source) = pending.take() {
+            source.remove();
+        }
+        let (value, apply, done) = (row.value(), Rc::clone(&apply), Rc::clone(&pending));
+        pending.set(Some(glib::timeout_add_local_once(SETTLE, move || {
+            done.set(None);
+            apply(value);
+        })));
+    });
+}
+
 /// Zoom levels offered, as percentages.
 const ZOOM_RANGE: (f64, f64, f64) = (30.0, 300.0, 10.0);
 
 pub fn dialog(app: &Rc<App>) -> adw::PreferencesDialog {
     let dialog = adw::PreferencesDialog::new();
-    dialog.add(&general_page(app));
+    let (general, watch) = general_page(app);
+    dialog.add(&general);
     dialog.add(&privacy_page());
+    if let Some((action, handler)) = watch {
+        let handler = Cell::new(Some(handler));
+        dialog.connect_closed(move |_| {
+            if let Some(handler) = handler.take() {
+                action.disconnect(handler);
+            }
+        });
+    }
     dialog
 }
 
-fn general_page(app: &Rc<App>) -> adw::PreferencesPage {
+/// The General page, and the handler watching the background-mode action,
+/// which the dialog disconnects when it closes.
+fn general_page(
+    app: &Rc<App>,
+) -> (
+    adw::PreferencesPage,
+    Option<(gio::SimpleAction, glib::SignalHandlerId)>,
+) {
     let config = app.config().clone();
     let page = adw::PreferencesPage::builder()
         .title("General")
@@ -37,6 +75,24 @@ fn general_page(app: &Rc<App>) -> adw::PreferencesPage {
         a.gtk
             .change_action_state("background-mode", &row.is_active().to_variant());
     });
+    // `calliope --background` can turn it on while the dialog is open.
+    let watch = app
+        .gtk
+        .lookup_action("background-mode")
+        .and_downcast::<gio::SimpleAction>()
+        .map(|action| {
+            let handler = action.connect_state_notify(glib::clone!(
+                #[weak]
+                run_in_background,
+                move |action| {
+                    let on = action.state().and_then(|s| s.get::<bool>()) == Some(true);
+                    if run_in_background.is_active() != on {
+                        run_in_background.set_active(on);
+                    }
+                }
+            ));
+            (action, handler)
+        });
     background.add(&run_in_background);
     page.add(&background);
 
@@ -79,8 +135,8 @@ fn general_page(app: &Rc<App>) -> adw::PreferencesPage {
     min_chars.set_subtitle("Characters typed before “Ask Muse” appears");
     min_chars.set_value(config.search_provider.min_chars as f64);
     let a = Rc::clone(app);
-    min_chars.connect_value_notify(move |row| {
-        a.config_mut().search_provider.min_chars = row.value() as usize;
+    on_settled(&min_chars, move |value| {
+        a.config_mut().search_provider.min_chars = value as usize;
         a.save_config();
     });
     search.add(&min_chars);
@@ -125,11 +181,11 @@ fn general_page(app: &Rc<App>) -> adw::PreferencesPage {
     zoom.set_subtitle("Percent; Ctrl+plus and Ctrl+minus change it too");
     zoom.set_value((config.zoom_level * 100.0).round());
     let a = Rc::clone(app);
-    zoom.connect_value_notify(move |row| a.set_zoom(row.value() / 100.0));
+    on_settled(&zoom, move |value| a.set_zoom(value / 100.0));
     pages.add(&zoom);
     page.add(&pages);
 
-    page
+    (page, watch)
 }
 
 fn privacy_page() -> adw::PreferencesPage {
