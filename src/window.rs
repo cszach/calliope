@@ -79,7 +79,10 @@ pub fn open(app: &Rc<App>, uri: &str) -> adw::ApplicationWindow {
     ));
 
     view.connect_load_changed(|view, event| {
-        if matches!(event, webkit::LoadEvent::Committed | webkit::LoadEvent::Finished) {
+        if matches!(
+            event,
+            webkit::LoadEvent::Committed | webkit::LoadEvent::Finished
+        ) {
             log::info!("{event:?} {}", view.uri().unwrap_or_default());
         }
     });

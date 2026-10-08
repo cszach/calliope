@@ -17,7 +17,7 @@ fn main() -> glib::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("muse=info")).init();
 
     let config_path = paths::config_file();
-    let config = Config::load(&config_path);
+    let (config, config_writable) = Config::load(&config_path);
 
     // WebKit and GTK read these once, when they start.
     for (key, value) in &config.webkit.env {
@@ -25,5 +25,5 @@ fn main() -> glib::ExitCode {
         unsafe { std::env::set_var(key, value) };
     }
 
-    app::App::new(config, config_path).run()
+    app::App::new(config, config_path, config_writable).run()
 }

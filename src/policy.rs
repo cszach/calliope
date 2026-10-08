@@ -14,6 +14,9 @@ pub enum Disposition {
     InApp,
     /// Open it in the default browser or handler and cancel it here.
     External,
+    /// Cancel it. Used for hand-offs the user did not ask for: launching
+    /// another app or a browser tab needs a click.
+    Block,
 }
 
 /// What WebKit tells us about a navigation.
@@ -45,8 +48,9 @@ pub fn classify(uri: &str, nav: Navigation, allowed: &[String]) -> Disposition {
         "http" | "https" => {}
         // Page-internal documents never leave the view.
         "about" | "blob" | "data" => return Disposition::InApp,
-        // mailto:, tel:, app links and the like belong to other apps.
-        _ => return Disposition::External,
+        // mailto:, tel:, app links and the like belong to other apps, but
+        // only a click may launch one; an iframe redirect must not.
+        _ => return external_if(nav.user_gesture),
     }
     if url.host_str().is_some_and(|h| host_allowed(h, allowed)) {
         return Disposition::InApp;
@@ -55,7 +59,7 @@ pub fn classify(uri: &str, nav: Navigation, allowed: &[String]) -> Disposition {
         // `target="_blank"` link: the user wants to read it, in the browser.
         // `window.open()`: likely a sign-in popup that must share our cookies.
         return if nav.link_clicked {
-            Disposition::External
+            external_if(nav.user_gesture)
         } else {
             Disposition::InApp
         };
@@ -68,6 +72,14 @@ pub fn classify(uri: &str, nav: Navigation, allowed: &[String]) -> Disposition {
         Disposition::External
     } else {
         Disposition::InApp
+    }
+}
+
+fn external_if(user_gesture: bool) -> Disposition {
+    if user_gesture {
+        Disposition::External
+    } else {
+        Disposition::Block
     }
 }
 
@@ -181,7 +193,7 @@ mod tests {
     #[test]
     fn other_schemes_go_to_their_apps() {
         assert_eq!(
-            classify("mailto:a@b.example", REDIRECT, &allowed()),
+            classify("mailto:a@b.example", CLICK, &allowed()),
             Disposition::External
         );
         assert_eq!(
@@ -191,6 +203,32 @@ mod tests {
         assert_eq!(
             classify("blob:https://muse.ai/1234", CLICK, &allowed()),
             Disposition::InApp
+        );
+    }
+
+    #[test]
+    fn other_schemes_need_a_click() {
+        assert_eq!(
+            classify("steam://run/1", REDIRECT, &allowed()),
+            Disposition::Block
+        );
+        assert_eq!(
+            classify("file:///etc/passwd", REDIRECT, &allowed()),
+            Disposition::Block
+        );
+    }
+
+    #[test]
+    fn scripted_blank_target_click_is_blocked() {
+        let nav = Navigation {
+            new_window: true,
+            link_clicked: true,
+            user_gesture: false,
+            in_popup: false,
+        };
+        assert_eq!(
+            classify("https://ads.example/", nav, &allowed()),
+            Disposition::Block
         );
     }
 

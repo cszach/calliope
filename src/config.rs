@@ -152,17 +152,25 @@ impl OriginPermissions {
 
 impl Config {
     /// Reads the config, falling back to defaults when the file is missing or
-    /// unreadable. A broken file is logged, never fatal.
-    pub fn load(path: &Path) -> Self {
+    /// broken. The flag says whether saving may overwrite the file: it is
+    /// false when a file exists but could not be used, so a typo in a
+    /// hand-edited config is never replaced by defaults.
+    pub fn load(path: &Path) -> (Self, bool) {
         match std::fs::read_to_string(path) {
-            Ok(text) => toml::from_str(&text).unwrap_or_else(|e| {
-                log::warn!("ignoring invalid config {}: {e}", path.display());
-                Self::default()
-            }),
-            Err(e) if e.kind() == io::ErrorKind::NotFound => Self::default(),
+            Ok(text) => match toml::from_str(&text) {
+                Ok(config) => (config, true),
+                Err(e) => {
+                    log::warn!(
+                        "ignoring invalid config {} and leaving it untouched: {e}",
+                        path.display()
+                    );
+                    (Self::default(), false)
+                }
+            },
+            Err(e) if e.kind() == io::ErrorKind::NotFound => (Self::default(), true),
             Err(e) => {
                 log::warn!("cannot read config {}: {e}", path.display());
-                Self::default()
+                (Self::default(), false)
             }
         }
     }
@@ -221,14 +229,15 @@ mod tests {
     #[test]
     fn missing_file_gives_defaults() {
         let path = temp_path("missing").with_file_name("nope.toml");
-        assert_eq!(Config::load(&path), Config::default());
+        assert_eq!(Config::load(&path), (Config::default(), true));
     }
 
     #[test]
     fn invalid_file_gives_defaults() {
         let path = temp_path("invalid");
         std::fs::write(&path, "this is = = not toml").unwrap();
-        assert_eq!(Config::load(&path), Config::default());
+        // Defaults, and the broken file must not be overwritten.
+        assert_eq!(Config::load(&path), (Config::default(), false));
     }
 
     #[test]
@@ -241,7 +250,7 @@ mod tests {
         cfg.remember_permission("https://muse.ai", Capability::Microphone, true);
         cfg.remember_permission("https://muse.ai", Capability::Notifications, false);
         cfg.save(&path).unwrap();
-        assert_eq!(Config::load(&path), cfg);
+        assert_eq!(Config::load(&path), (cfg, true));
         assert!(!path.with_extension("toml.tmp").exists());
     }
 

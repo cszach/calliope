@@ -15,12 +15,14 @@ pub struct App {
     pub gtk: adw::Application,
     config: RefCell<Config>,
     config_path: PathBuf,
+    /// False when an existing config file could not be parsed.
+    config_writable: bool,
     engine: OnceCell<Engine>,
     debug_flag: Cell<bool>,
 }
 
 impl App {
-    pub fn new(config: Config, config_path: PathBuf) -> Rc<Self> {
+    pub fn new(config: Config, config_path: PathBuf, config_writable: bool) -> Rc<Self> {
         let gtk = adw::Application::builder()
             .application_id(APP_ID)
             .flags(gio::ApplicationFlags::HANDLES_OPEN)
@@ -37,6 +39,7 @@ impl App {
             gtk,
             config: RefCell::new(config),
             config_path,
+            config_writable,
             engine: OnceCell::new(),
             debug_flag: Cell::new(false),
         });
@@ -57,6 +60,13 @@ impl App {
     }
 
     pub fn save_config(&self) {
+        if !self.config_writable {
+            log::warn!(
+                "not saving settings: fix {} and restart",
+                self.config_path.display()
+            );
+            return;
+        }
         if let Err(e) = self.config.borrow().save(&self.config_path) {
             log::warn!("cannot save config {}: {e}", self.config_path.display());
         }

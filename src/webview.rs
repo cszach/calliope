@@ -81,6 +81,10 @@ fn decide_policy(
                     decision.ignore();
                     open_external(view, &uri);
                 }
+                Disposition::Block => {
+                    log::info!("blocked navigation without a user gesture: {uri}");
+                    decision.ignore();
+                }
             }
             true
         }

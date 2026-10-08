@@ -40,6 +40,9 @@ pub fn attach(app: &Rc<App>, opener: &webkit::WebView, view: &webkit::WebView) {
         .default_width(DEFAULT_SIZE.0)
         .default_height(DEFAULT_SIZE.1)
         .content(&toolbar)
+        // A sign-in popup has no purpose once its opener is gone, and would
+        // otherwise keep the app running.
+        .destroy_with_parent(true)
         .build();
     if let Some(parent) = opener.root().and_downcast::<gtk::Window>() {
         window.set_transient_for(Some(&parent));
