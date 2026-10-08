@@ -13,7 +13,7 @@ use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::{shortcuts, tab, window};
 
-const REPO_URL: &str = "https://github.com/cszach/muse-ai-client";
+const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
 
 /// A main window and its tabs, held weakly: GTK owns both.
 struct WindowRef {
