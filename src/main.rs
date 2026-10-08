@@ -13,6 +13,7 @@ mod policy;
 mod popup;
 mod prompt;
 mod quick_ask;
+mod search_provider;
 mod shortcuts;
 mod startup_env;
 mod tab;

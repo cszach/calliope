@@ -12,9 +12,11 @@ use crate::config::Config;
 use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::notifications;
-use crate::{downloads, hotkey, policy, quick_ask, shortcuts, tab, window};
+use crate::{downloads, hotkey, policy, quick_ask, search_provider, shortcuts, tab, window};
 
 const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
+/// How long a D-Bus-started Muse with no window waits for the next call.
+const SERVICE_IDLE_MS: u32 = 30_000;
 
 /// What the first activation of this process should do.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -193,7 +195,7 @@ impl App {
 
     /// The main window to act on: the focused one, else the newest one on
     /// screen, else the one background mode hid.
-    fn target_window(&self) -> Option<(adw::ApplicationWindow, adw::TabView)> {
+    pub fn target_window(&self) -> Option<(adw::ApplicationWindow, adw::TabView)> {
         let windows = self.main_windows();
         let active = self.gtk.active_window();
         windows
@@ -365,6 +367,12 @@ impl App {
             app.apply_background_mode();
             shortcuts::install(&app.gtk, app.debug());
             hotkey::init(&app);
+            search_provider::register(&app);
+            // Started by GNOME Shell just to answer a search: stay up between
+            // keystrokes instead of exiting as soon as a call returns.
+            if app.gtk.flags().contains(gio::ApplicationFlags::IS_SERVICE) {
+                app.gtk.set_inactivity_timeout(SERVICE_IDLE_MS);
+            }
 
             // A hidden quick-ask window must not keep Muse alive once the
             // last main window has gone.

@@ -3,6 +3,8 @@ BINDIR := $(PREFIX)/bin
 DATADIR := $(PREFIX)/share
 ICONDIR := $(DATADIR)/icons/hicolor
 AUTOSTARTDIR := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/autostart
+# GNOME Shell reads search providers from system data dirs only.
+SEARCH_PROVIDER_DIR := /usr/local/share/gnome-shell/search-providers
 APP_ID := io.github.cszach.Muse
 
 # Data files with the install path filled in.
@@ -18,6 +20,7 @@ OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
 
 .PHONY: all build run check fmt clippy test validate install uninstall \
 	enable-autostart disable-autostart install-shortcut uninstall-shortcut \
+	install-search-provider uninstall-search-provider \
 	fetch-icon FORCE
 
 all: build
@@ -89,6 +92,14 @@ enable-autostart: $(GENDIR)/$(APP_ID).autostart.desktop
 
 disable-autostart:
 	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
+
+install-search-provider:
+	sudo install -Dm644 data/$(APP_ID).search-provider.ini \
+		$(SEARCH_PROVIDER_DIR)/$(APP_ID).search-provider.ini
+	@echo "Log out and back in for GNOME Shell to pick it up."
+
+uninstall-search-provider:
+	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(APP_ID).search-provider.ini
 
 install-shortcut:
 	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/muse --quick-ask'

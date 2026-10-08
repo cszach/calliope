@@ -88,6 +88,11 @@ its source and the date it was checked. When one changes, edit it in place.
   (`preventDefault`) does not come back. Arrow keys are always treated as
   handled (WebKit source at tag `webkitgtk-2.54.1`, read 2026-10-08).
 
+- A window covered by other windows reports `document.visibilityState`
+  "hidden", and muse.ai's logged-out page then gives its form no layout
+  boxes (`getClientRects()` empty), so a prompt fill must wait until the
+  window is on screen (checked 2026-10-08).
+
 ## Graphics on this laptop
 
 - AMD Cezanne iGPU (`/dev/dri/renderD128`, radeonsi) drives the session;
@@ -138,6 +143,13 @@ its source and the date it was checked. When one changes, edit it in place.
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.
 - Zach's custom keybinding slot `custom0` is taken (Ctrl+Alt+A runs kitty).
+- GNOME Shell 50 calls a provider's `ActivateResult(id, terms, timestamp)`
+  with no activation token (`remoteSearch.js`, extracted from
+  `libshell-18.so`), so presenting an existing window from it may only
+  show "Muse is ready". A D-Bus-started `--gapplication-service` instance
+  exits as soon as it is idle unless it sets an inactivity timeout; Muse
+  uses 30 s and holds the app for each call, which restarts the timer
+  (checked 2026-10-08).
 - `GApplication` turns a bare command-line argument such as `muse.ai` into
   `file://$PWD/muse.ai` before `open` sees it (checked 2026-10-08), so the
   app filters `open` to http and https links.

@@ -1,7 +1,12 @@
 // Runs at document start in the isolated "muse-client" world.
-// Exposes __museFill(text, submit, selector), which types `text` into the
-// Muse composer, and __museFocus(selector), which focuses it. Both return true
-// when a visible composer was found.
+// Exposes, for the app's prompt pre-fill:
+//   __museEnsure(text, selector): "hidden" while the page is off screen
+//     (it may not lay out its form then), "missing" when there is no visible
+//     composer, "present" when it already holds `text`, else types `text`
+//     in and returns "filled". The app calls it until the text survives a
+//     second, because the page may re-render and wipe an early fill.
+//   __museSubmit(selector): presses Enter in the composer.
+//   __museFocus(selector): focuses the composer; true when found.
 (() => {
   const DEFAULT_SELECTORS = [
     'textarea',
@@ -48,9 +53,15 @@
     return true;
   };
 
-  window.__museFill = (text, submit, selector) => {
+  const normalize = (s) => s.replace(/\s+/g, ' ').trim();
+
+  const contentOf = (el) => (el.isContentEditable ? el.innerText : el.value) || '';
+
+  window.__museEnsure = (text, selector) => {
+    if (document.visibilityState === 'hidden') return 'hidden';
     const el = findComposer(selector);
-    if (!el) return false;
+    if (!el) return 'missing';
+    if (normalize(contentOf(el)) === normalize(text)) return 'present';
     el.focus();
     if (el.isContentEditable) {
       document.execCommand('selectAll', false, null);
@@ -61,11 +72,15 @@
     } else {
       setNativeValue(el, text);
     }
-    if (submit) {
-      const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
-      el.dispatchEvent(new KeyboardEvent('keydown', opts));
-      el.dispatchEvent(new KeyboardEvent('keyup', opts));
-    }
+    return 'filled';
+  };
+
+  window.__museSubmit = (selector) => {
+    const el = findComposer(selector);
+    if (!el) return false;
+    const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+    el.dispatchEvent(new KeyboardEvent('keydown', opts));
+    el.dispatchEvent(new KeyboardEvent('keyup', opts));
     return true;
   };
 })();
