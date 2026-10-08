@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Binds a GNOME custom keyboard shortcut to `muse --quick-ask`, or removes it.
+"""Binds a GNOME custom keyboard shortcut to `calliope --quick-ask`, or removes it.
 
-The GlobalShortcuts portal ("Quick Ask Shortcut…" in Muse's menu) is the
+The GlobalShortcuts portal ("Quick Ask Shortcut…" in Calliope's menu) is the
 better way: a custom shortcut launches its command without a usable
-activation token, so GNOME may show "Muse is ready" instead of focusing the
+activation token, so GNOME may show "Calliope is ready" instead of focusing the
 window. This is the fallback for desktops without the portal.
 
 The user's other custom shortcuts are kept.
@@ -18,7 +18,7 @@ import sys
 
 SCHEMA = "org.gnome.settings-daemon.plugins.media-keys"
 ENTRY_SCHEMA = SCHEMA + ".custom-keybinding"
-PATH = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/muse-quick-ask/"
+PATH = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/calliope-quick-ask/"
 
 
 def gsettings(*args):
@@ -44,14 +44,14 @@ def main(argv):
         if PATH in paths:
             set_paths([p for p in paths if p != PATH])
         gsettings("reset-recursively", f"{ENTRY_SCHEMA}:{PATH}")
-        print("Removed the Muse quick-ask shortcut.")
+        print("Removed the Calliope quick-ask shortcut.")
         return 0
     if len(argv) != 3:
         print(__doc__.strip(), file=sys.stderr)
         return 2
     binding, command = argv[1], argv[2]
     entry = f"{ENTRY_SCHEMA}:{PATH}"
-    gsettings("set", entry, "name", "Muse Quick Ask")
+    gsettings("set", entry, "name", "Calliope Quick Ask")
     gsettings("set", entry, "command", command)
     gsettings("set", entry, "binding", binding)
     if PATH not in paths:

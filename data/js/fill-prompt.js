@@ -1,12 +1,12 @@
-// Runs at document start in the isolated "muse-client" world.
+// Runs at document start in the isolated "calliope" world.
 // Exposes, for the app's prompt pre-fill:
-//   __museEnsure(text, selector): "hidden" while the page is off screen
+//   __calliopeEnsure(text, selector): "hidden" while the page is off screen
 //     (it may not lay out its form then), "missing" when there is no visible
 //     composer, "present" when it already holds `text`, else types `text`
 //     in and returns "filled". The app calls it until the text survives a
 //     second, because the page may re-render and wipe an early fill.
-//   __museSubmit(selector): presses Enter in the composer.
-//   __museFocus(selector): focuses the composer; true when found.
+//   __calliopeSubmit(selector): presses Enter in the composer.
+//   __calliopeFocus(selector): focuses the composer; true when found.
 (() => {
   const DEFAULT_SELECTORS = [
     'textarea',
@@ -46,7 +46,7 @@
     el.dispatchEvent(new Event('change', { bubbles: true }));
   };
 
-  window.__museFocus = (selector) => {
+  window.__calliopeFocus = (selector) => {
     const el = findComposer(selector);
     if (!el) return false;
     el.focus();
@@ -62,7 +62,7 @@
   // counts as present.
   const filled = new WeakMap();
 
-  window.__museEnsure = (text, selector) => {
+  window.__calliopeEnsure = (text, selector) => {
     if (document.visibilityState === 'hidden') return 'hidden';
     const el = findComposer(selector);
     if (!el) return 'missing';
@@ -82,7 +82,7 @@
     return 'filled';
   };
 
-  window.__museSubmit = (selector) => {
+  window.__calliopeSubmit = (selector) => {
     const el = findComposer(selector);
     if (!el) return false;
     const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };

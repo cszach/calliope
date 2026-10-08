@@ -84,7 +84,7 @@ its source and the date it was checked. When one changes, edit it in place.
 - `Download` `destination` is a local path in API 6.0, not a URI.
 
 - A `WebView` in a window that has never been shown still loads and runs
-  its page: `muse --background` reached the Muse title with
+  its page: `calliope --background` reached the Muse title with
   `document.visibilityState` "hidden" (2026-10-08). Hiding a window with
   `set_visible(false)` keeps the page alive the same way, which is what lets
   background mode keep receiving web notifications. `visibilityState` is a
@@ -144,7 +144,7 @@ its source and the date it was checked. When one changes, edit it in place.
   other portal call; the Claude desktop app is bound this way here.
 - `Registry.Register` fails with "App info not found" unless a desktop file
   for the app id is installed (checked 2026-10-08), so global shortcuts work
-  only for the installed `io.github.cszach.Muse`, never for a `.Devel`
+  only for the installed `io.github.cszach.Calliope`, never for a `.Devel`
   instance. Register and `CreateSession` succeed for the installed id.
 - The portal's `Activated` signal carries an `activation_token` when Mutter
   provides one (`globalshortcuts.c`, 50.0).
@@ -171,3 +171,39 @@ its source and the date it was checked. When one changes, edit it in place.
 - The session bus here is dbus-broker. A newly installed
   `~/.local/share/dbus-1/services/*.service` is picked up after
   `org.freedesktop.DBus.ReloadConfig`, which `make install` calls.
+
+## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
+
+- Flathub (docs.flathub.org/docs/for-app-authors/requirements): web
+  wrappers are refused unless they add "significant polish, functionality,
+  or meaningful desktop integration"; there is no rule that the site owner
+  must submit. App names and icons "must not violate any trademarks", with
+  the example that a WhatsApp client cannot have "WhatsApp" in its name.
+  Flathub's generative-AI policy requires disclosing AI-generated code,
+  forbids AI-assisted manifests and AI-driven submission pull requests, and
+  lets reviewers reject on the extent of generated code. So Calliope ships
+  from a self-hosted Flatpak repository (Zach's choice, 2026-10-08).
+- Meta's trademark page (meta.com/brand/resources/meta/our-trademarks/)
+  bars Meta marks "as or as part of any" trademark, name, username or
+  domain, and anything confusingly similar; WhatsApp's adds phonetic
+  takeoffs. Meta filed "META MUSE" (serial 50039578, 2026-08-08). Hence the
+  name Calliope, chosen by Zach for recalling the Muses by meaning, not
+  sound. muse.ai/terms (2026-09-08) forbid reverse engineering, distilling,
+  and hiding the automated nature of automated actions; nothing names
+  third-party clients. Calliope injects only the scripts in `data/js/` and
+  acts in the page only when the user asks.
+- GNOME HIG (developer.gnome.org/hig): names under 15 characters, no
+  trademarks of others, every app needs a symbolic icon, 1024×600 must
+  work and phone-friendly apps should reach 360×294. GNOME Circle is closed
+  to submissions (2026-05-29) and rejects AI-generated work.
+- The official Muse Mac app (direct download from ai.meta.com/muse/download,
+  2026-09-17) adds local computer use (Files, Mail, Messages, Calendar,
+  screen recording, accessibility control) and task-done notifications.
+  No global shortcut or menu-bar icon is documented. Local computer use is
+  out of reach for a website host; M0 targets website parity plus
+  Calliope's own desktop features (Zach, 2026-10-08).
+- Dark mode reaches pages without extra code: libadwaita 1.9 sets
+  `gtk-interface-color-scheme`, which WebKitGTK reads for
+  `prefers-color-scheme` and updates live; checked with a probe for forced
+  light, forced dark and the system default. The GNOME accent colour does
+  not reach page CSS (`AccentColor` stayed WebKit's blue).

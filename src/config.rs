@@ -1,4 +1,4 @@
-//! User configuration, stored as TOML in `~/.config/muse-client/config.toml`.
+//! User configuration, stored as TOML in `~/.config/calliope/config.toml`.
 //!
 //! Every key has a default, so a missing or partial file is fine. The file is
 //! also where the app remembers window size and permission answers.
@@ -150,7 +150,7 @@ impl OriginPermissions {
     }
 }
 
-const SAVED_HEADER: &str = "# Muse settings that differ from the defaults. Muse rewrites this file;\n\
+const SAVED_HEADER: &str = "# Calliope settings that differ from the defaults. Calliope rewrites this file;\n\
      # see config.example.toml in the repository for every key.\n\n";
 
 /// Removes from `value` every key whose value equals the one in `defaults`,
@@ -229,7 +229,7 @@ mod tests {
     use super::*;
 
     fn temp_path(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("muse-test-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("calliope-test-{}-{name}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("config.toml")
     }
