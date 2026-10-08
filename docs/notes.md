@@ -27,8 +27,6 @@ its source and the date it was checked. When one changes, edit it in place.
   fetchable without login (2026-10-08). Meta's trademarks page requires
   permission to use its marks, so the repo ships its own icon and
   `make fetch-icon` downloads the official one for personal use only.
-- Unknown until tried with an account: whether voice mode and the Secure VM
-  live view use WebRTC (which this WebKit lacks) or WebSockets.
 
 ## WebKitGTK 2.54.1 (Fedora 44 package `webkitgtk6.0-2.54.1-1.fc44`)
 
@@ -59,6 +57,17 @@ its source and the date it was checked. When one changes, edit it in place.
 - If `show-notification` is not handled, WebKit posts its own desktop
   notification, and clicking it cannot raise our window
   (`WebKitNotificationProvider.cpp`). We handle it.
+- **The DMA-BUF video sink breaks muse.ai's avatar.** The avatar is a looping,
+  muted 720×720 H.264 MP4 played from a `blob:` URL in a `<video>`. With
+  WebKit's defaults on this laptop it draws as a solid block: green on screen
+  (Zach, 2026-10-08), black in `WebView` snapshots. Snapshots under
+  `WEBKIT_GST_DMABUF_SINK_DISABLED=1` or `WEBKIT_GST_DISABLE_GL_SINK=1` show
+  the animated character. Demoting the NVIDIA decoders (`nvh264dec`, rank 257,
+  above `avdec_h264` at 256) changed nothing, so the decoder is not the cause.
+  The app sets `WEBKIT_GST_DMABUF_SINK_DISABLED=1` by default
+  (`src/startup_env.rs`); the root cause inside WebKit is not established.
+- Voice mode and the Secure VM "browser take over" view both work in
+  WebKitGTK 2.54 without WebRTC (Zach, 2026-10-08).
 - `run-file-chooser` needs no handler; the default opens a native chooser.
 - `Download` `destination` is a local path in API 6.0, not a URI.
 

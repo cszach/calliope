@@ -8,6 +8,7 @@ mod paths;
 mod permissions;
 mod policy;
 mod popup;
+mod startup_env;
 mod webview;
 mod window;
 
@@ -19,10 +20,16 @@ fn main() -> glib::ExitCode {
     let config_path = paths::config_file();
     let (config, config_writable) = Config::load(&config_path);
 
-    // WebKit and GTK read these once, when they start.
-    for (key, value) in &config.webkit.env {
+    // WebKit, GStreamer and GTK read these once, when they start.
+    let changes = startup_env::changes(&config.webkit.env, |key| std::env::var_os(key).is_some());
+    for (key, value) in changes {
         // SAFETY: no other threads exist yet.
-        unsafe { std::env::set_var(key, value) };
+        unsafe {
+            match value {
+                Some(value) => std::env::set_var(&key, value),
+                None => std::env::remove_var(&key),
+            }
+        }
     }
 
     app::App::new(config, config_path, config_writable).run()

@@ -38,6 +38,9 @@ min_chars = 3
 prefix = ""
 
 # Environment variables applied before WebKit starts. See README "Graphics troubleshooting".
+# The app sets WEBKIT_GST_DMABUF_SINK_DISABLED = "1" by default, because the
+# DMA-BUF video sink draws muse.ai's avatar as a solid block. Set a variable to
+# "" here to remove it.
 [webkit.env]
 # WEBKIT_DISABLE_DMABUF_RENDERER = "1"
 # GSK_RENDERER = "ngl"
