@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::notifications;
-use crate::{downloads, shortcuts, tab, window};
+use crate::{downloads, policy, shortcuts, tab, window};
 
 const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
 
@@ -32,6 +32,12 @@ pub struct App {
     debug_flag: Cell<bool>,
     windows: RefCell<Vec<WindowRef>>,
     web_notifications: notifications::Live,
+    /// Keeps the process alive with no window while background mode is on.
+    background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
+    /// `--background`: the first activation loads Muse without showing it.
+    start_hidden: Cell<bool>,
+    /// Set by Quit, so closing the last window really closes it.
+    quitting: Cell<bool>,
 }
 
 impl App {
@@ -48,6 +54,22 @@ impl App {
             "Enable the web inspector and verbose logging",
             None,
         );
+        gtk.add_main_option(
+            "background",
+            glib::Char::from(b'b'),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::None,
+            "Start in the background, with no window, and turn on background mode",
+            None,
+        );
+        gtk.add_main_option(
+            "new-window",
+            glib::Char::from(b'n'),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::None,
+            "Open a new window",
+            None,
+        );
         let app = Rc::new(Self {
             gtk,
             config: RefCell::new(config),
@@ -57,6 +79,9 @@ impl App {
             debug_flag: Cell::new(false),
             windows: RefCell::new(Vec::new()),
             web_notifications: notifications::Live::default(),
+            background_hold: RefCell::new(None),
+            start_hidden: Cell::new(false),
+            quitting: Cell::new(false),
         });
         app.connect_signals();
         app
@@ -131,15 +156,63 @@ impl App {
             .collect()
     }
 
-    /// The main window to act on: the focused one, else the newest.
+    /// The main window to act on: the focused one, else the newest one on
+    /// screen, else the one background mode hid.
     fn target_window(&self) -> Option<(adw::ApplicationWindow, adw::TabView)> {
         let windows = self.main_windows();
         let active = self.gtk.active_window();
         windows
             .iter()
             .find(|(w, _)| active.as_ref() == Some(w.upcast_ref()))
+            .or_else(|| windows.iter().rev().find(|(w, _)| w.is_visible()))
             .or(windows.last())
             .cloned()
+    }
+
+    /// Whether closing the window that holds `tabs` should hide it instead:
+    /// in background mode the last window stays alive, hidden, so Muse can
+    /// keep sending notifications. An empty window is closed regardless.
+    pub fn hides_on_close(&self, tabs: &adw::TabView) -> bool {
+        !self.quitting.get()
+            && self.config().background_mode
+            && tabs.n_pages() > 0
+            && self.main_windows().iter().all(|(_, t)| t == tabs)
+    }
+
+    /// Turns background mode on or off, saves it, and updates the menu.
+    fn set_background_mode(&self, on: bool) {
+        if self.config().background_mode != on {
+            self.config_mut().background_mode = on;
+            self.save_config();
+        }
+        self.apply_background_mode();
+    }
+
+    fn apply_background_mode(&self) {
+        let on = self.config().background_mode;
+        let mut hold = self.background_hold.borrow_mut();
+        if on && hold.is_none() {
+            *hold = Some(self.gtk.hold());
+        } else if !on {
+            hold.take();
+        }
+        drop(hold);
+        if !on {
+            // A window hidden by background mode would otherwise keep Muse
+            // running out of sight.
+            for (window, _) in self.main_windows() {
+                if !window.is_visible() {
+                    window.destroy();
+                }
+            }
+        }
+        if let Some(action) = self
+            .gtk
+            .lookup_action("background-mode")
+            .and_downcast::<gio::SimpleAction>()
+        {
+            action.set_state(&on.to_variant());
+        }
     }
 
     /// Applies a zoom level to every view and remembers it.
@@ -165,11 +238,35 @@ impl App {
 
     fn connect_signals(self: &Rc<Self>) {
         let app = Rc::clone(self);
-        self.gtk.connect_handle_local_options(move |_, options| {
+        self.gtk.connect_handle_local_options(move |gtk, options| {
+            use std::ops::ControlFlow;
             if options.contains("debug") {
                 app.debug_flag.set(true);
             }
-            std::ops::ControlFlow::Continue(())
+            let background = options.contains("background");
+            let new_window = options.contains("new-window");
+            if !background && !new_window {
+                return ControlFlow::Continue(());
+            }
+            // Find out whether Muse is already running; registering runs
+            // `startup` when this process is the first.
+            if let Err(e) = gtk.register(gio::Cancellable::NONE) {
+                log::error!("cannot register the application: {e}");
+                return ControlFlow::Break(glib::ExitCode::FAILURE);
+            }
+            if gtk.is_remote() {
+                if new_window {
+                    gtk.activate_action("new-window", None);
+                } else {
+                    gtk.change_action_state("background-mode", &true.to_variant());
+                }
+                return ControlFlow::Break(glib::ExitCode::SUCCESS);
+            }
+            if background && !new_window {
+                app.set_background_mode(true);
+                app.start_hidden.set(true);
+            }
+            ControlFlow::Continue(())
         });
 
         let app = Rc::clone(self);
@@ -182,6 +279,7 @@ impl App {
             }
             downloads::attach(&app);
             app.add_actions();
+            app.apply_background_mode();
             shortcuts::install(&app.gtk, app.debug());
 
             let styled = Rc::clone(&app);
@@ -193,17 +291,40 @@ impl App {
         });
 
         let app = Rc::clone(self);
-        self.gtk
-            .connect_activate(move |_| match app.target_window() {
+        self.gtk.connect_activate(move |_| {
+            if app.start_hidden.replace(false) {
+                // Load Muse in a window that is never shown until asked for,
+                // so its notifications arrive from the start.
+                window::create(&app, &[]);
+                return;
+            }
+            match app.target_window() {
                 Some((window, _)) => window.present(),
                 None => {
                     window::open(&app, &[]);
                 }
-            });
+            }
+        });
 
         let app = Rc::clone(self);
-        self.gtk.connect_open(move |_, files, _hint| {
-            let uris: Vec<String> = files.iter().map(|f| f.uri().to_string()).collect();
+        self.gtk.connect_open(move |gtk, files, _hint| {
+            // Links on the command line mean the user wants to see them.
+            app.start_hidden.set(false);
+            let uris: Vec<String> = files
+                .iter()
+                .map(|f| f.uri().to_string())
+                .filter(|uri| {
+                    let ok = policy::openable(uri);
+                    if !ok {
+                        log::warn!("not opening {uri}: only http and https links open in Muse");
+                    }
+                    ok
+                })
+                .collect();
+            if uris.is_empty() {
+                gtk.activate();
+                return;
+            }
             match app.target_window() {
                 Some((window, tabs)) => {
                     for uri in &uris {
@@ -236,10 +357,23 @@ impl App {
             .activate(move |gtk: &GtkApp, _, _| {
                 // Closing runs each window's close handler, which saves its
                 // size; popups close with their opener.
+                app.quitting.set(true);
                 for (window, _) in app.main_windows() {
                     window.close();
                 }
                 gtk.quit();
+            })
+            .build();
+
+        let app = Rc::clone(self);
+        // Activating toggles it (GIO's default for a boolean state); a
+        // second `muse --background` sets it over D-Bus.
+        let background = gio::ActionEntry::builder("background-mode")
+            .state(self.config().background_mode.to_variant())
+            .change_state(move |_: &GtkApp, _, value| {
+                if let Some(on) = value.and_then(|v| v.get::<bool>()) {
+                    app.set_background_mode(on);
+                }
             })
             .build();
 
@@ -321,6 +455,7 @@ impl App {
         self.gtk.add_action_entries([
             new_window,
             quit,
+            background,
             about,
             clear,
             web_notification,

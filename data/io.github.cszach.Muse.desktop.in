@@ -7,17 +7,13 @@ Comment=Unofficial desktop client for Meta's Muse
 Exec=@BINDIR@/muse %U
 Icon=io.github.cszach.Muse
 Terminal=false
-Categories=Network;Chat;Utility;GTK;GNOME;
+Categories=Network;Chat;GTK;GNOME;
 Keywords=AI;assistant;agent;chat;Meta;Muse;
 StartupNotify=true
 DBusActivatable=true
 X-GNOME-UsesNotifications=true
 SingleMainWindow=false
-Actions=quick-ask;new-window;
-
-[Desktop Action quick-ask]
-Name=Quick Ask
-Exec=@BINDIR@/muse --quick-ask
+Actions=new-window;
 
 [Desktop Action new-window]
 Name=New Window

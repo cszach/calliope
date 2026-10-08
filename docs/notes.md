@@ -74,6 +74,13 @@ its source and the date it was checked. When one changes, edit it in place.
 - `run-file-chooser` needs no handler; the default opens a native chooser.
 - `Download` `destination` is a local path in API 6.0, not a URI.
 
+- A `WebView` in a window that has never been shown still loads and runs
+  its page: `muse --background` reached the Muse title with
+  `document.visibilityState` "hidden" (2026-10-08). Hiding a window with
+  `set_visible(false)` keeps the page alive the same way, which is what lets
+  background mode keep receiving web notifications. `visibilityState` is a
+  quick way to tell over `debug-eval` whether a window is on screen.
+
 ## Graphics on this laptop
 
 - AMD Cezanne iGPU (`/dev/dri/renderD128`, radeonsi) drives the session;
@@ -104,3 +111,9 @@ its source and the date it was checked. When one changes, edit it in place.
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.
 - Zach's custom keybinding slot `custom0` is taken (Ctrl+Alt+A runs kitty).
+- `GApplication` turns a bare command-line argument such as `muse.ai` into
+  `file://$PWD/muse.ai` before `open` sees it (checked 2026-10-08), so the
+  app filters `open` to http and https links.
+- The session bus here is dbus-broker. A newly installed
+  `~/.local/share/dbus-1/services/*.service` is picked up after
+  `org.freedesktop.DBus.ReloadConfig`, which `make install` calls.

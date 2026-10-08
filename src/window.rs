@@ -11,6 +11,13 @@ use crate::{shortcuts, tab, webview, zoom};
 
 /// Opens a window with one tab per URI, or one tab on the start page.
 pub fn open(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
+    let window = create(app, uris);
+    window.present();
+    window
+}
+
+/// Like [`open`], but leaves the window hidden.
+pub fn create(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
     let (window, tabs) = build(app);
     if uris.is_empty() {
         let start = app.config().start_url.clone();
@@ -20,7 +27,6 @@ pub fn open(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
             add_tab(app, &tabs, uri);
         }
     }
-    window.present();
     window
 }
 
@@ -117,19 +123,29 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
     add_actions(app, &window, &tabs);
 
     let a = Rc::clone(app);
-    window.connect_close_request(move |window| {
-        {
-            let mut config = a.config_mut();
-            config.window.maximized = window.is_maximized();
-            if !window.is_maximized() && !window.is_fullscreen() {
-                let (width, height) = window.default_size();
-                config.window.width = width;
-                config.window.height = height;
+    window.connect_close_request(glib::clone!(
+        #[weak]
+        tabs,
+        #[upgrade_or]
+        glib::Propagation::Proceed,
+        move |window| {
+            {
+                let mut config = a.config_mut();
+                config.window.maximized = window.is_maximized();
+                if !window.is_maximized() && !window.is_fullscreen() {
+                    let (width, height) = window.default_size();
+                    config.window.width = width;
+                    config.window.height = height;
+                }
             }
+            a.save_config();
+            if a.hides_on_close(&tabs) {
+                window.set_visible(false);
+                return glib::Propagation::Stop;
+            }
+            glib::Propagation::Proceed
         }
-        a.save_config();
-        glib::Propagation::Proceed
-    });
+    ));
 
     app.register_window(&window, &tabs);
     (window, tabs)
@@ -148,6 +164,10 @@ fn main_menu() -> gio::Menu {
     zoom.append(Some("Zoom _Out"), Some("win.zoom-out"));
     zoom.append(Some("_Reset Zoom"), Some("win.zoom-reset"));
     menu.append_section(None, &zoom);
+
+    let app = gio::Menu::new();
+    app.append(Some("Run in _Background"), Some("app.background-mode"));
+    menu.append_section(None, &app);
 
     let page = gio::Menu::new();
     page.append(Some("Open in _Browser"), Some("win.open-in-browser"));
@@ -259,6 +279,10 @@ fn add_actions(app: &Rc<App>, window: &adw::ApplicationWindow, tabs: &adw::TabVi
     ]);
 
     if app.debug() {
+        // Closes the window as its close button would.
+        let close = gio::ActionEntry::builder("debug-close")
+            .activate(|window: &Win, _, _| window.close())
+            .build();
         let screenshot = gio::ActionEntry::builder("debug-screenshot")
             .activate(|window: &Win, _, _| save_screenshot(window))
             .build();
@@ -296,6 +320,7 @@ fn add_actions(app: &Rc<App>, window: &adw::ApplicationWindow, tabs: &adw::TabVi
                 }
             }),
             screenshot,
+            close,
         ]);
     }
 }

@@ -75,6 +75,13 @@ pub fn classify(uri: &str, nav: Navigation, allowed: &[String]) -> Disposition {
     }
 }
 
+/// True for links a `muse URI` launch may open in a tab: web pages only.
+/// GIO turns a bare `muse.ai` argument into a `file://` path, and local
+/// files have no business in the Muse session.
+pub fn openable(uri: &str) -> bool {
+    Url::parse(uri).is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.has_host())
+}
+
 fn external_if(user_gesture: bool) -> Disposition {
     if user_gesture {
         Disposition::External
@@ -230,6 +237,15 @@ mod tests {
             classify("https://ads.example/", nav, &allowed()),
             Disposition::Block
         );
+    }
+
+    #[test]
+    fn only_web_links_open_from_the_command_line() {
+        assert!(openable("https://muse.ai/chat/1"));
+        assert!(openable("http://example.com/"));
+        assert!(!openable("file:///home/zach/muse.ai"));
+        assert!(!openable("mailto:a@b.c"));
+        assert!(!openable("not a uri"));
     }
 
     #[test]
