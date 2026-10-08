@@ -1,0 +1,29 @@
+[package]
+name = "muse"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Unofficial GNOME desktop client for Meta's Muse (muse.ai)"
+license = "MIT"
+repository = "https://github.com/cszach/muse-ai-client"
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.11", features = ["v4_20"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_8"] }
+webkit = { package = "webkit6", version = "0.6", features = ["v2_52"] }
+gio = "0.22"
+glib = "0.22"
+gdk = { package = "gdk4", version = "0.11" }
+ashpd = { version = "0.13", default-features = false, features = ["async-io", "global_shortcuts", "gtk4_wayland"] }
+futures-util = { version = "0.3", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+log = "0.4"
+env_logger = "0.11"
+url = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

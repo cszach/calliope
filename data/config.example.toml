@@ -1,0 +1,43 @@
+# Muse client configuration. Copy to ~/.config/muse-client/config.toml
+# Every key is optional; missing keys use the defaults shown here.
+
+# Page loaded in new tabs and the quick-ask window.
+start_url = "https://muse.ai/"
+
+# Keep running (notifications, quick ask) after the last window is closed.
+background_mode = false
+
+# Enable the web inspector (Ctrl+Shift+I) and verbose logging.
+debug = false
+
+# Override the user agent. Leave empty to use WebKitGTK's default, which is
+# what GNOME Web ships. Try the macOS variant if Meta shows "unsupported browser":
+# user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15"
+user_agent = ""
+
+# Page zoom (1.0 = 100%). Saved automatically when you zoom with Ctrl+plus/minus.
+zoom_level = 1.0
+
+# Hosts that stay inside the app. Anything else opened by a click goes to your browser.
+allowed_hosts = ["muse.ai", "meta.ai", "meta.com", "facebook.com", "fb.com", "fbcdn.net", "whatsapp.com"]
+
+# CSS selector of the Muse message composer, used by quick-ask and the search
+# provider to pre-fill a prompt. Leave empty to auto-detect.
+composer_selector = ""
+
+[quick_ask]
+width = 480
+height = 640
+# Press Enter automatically after filling a prompt from the search provider.
+submit = false
+
+[search_provider]
+# Minimum characters typed in the Activities overview before "Ask Muse" appears.
+min_chars = 3
+# Optional prefix, e.g. "?" so only "?how do I..." offers Ask Muse.
+prefix = ""
+
+# Environment variables applied before WebKit starts. See README "Graphics troubleshooting".
+[webkit.env]
+# WEBKIT_DISABLE_DMABUF_RENDERER = "1"
+# GSK_RENDERER = "ngl"

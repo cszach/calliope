@@ -1,0 +1,6 @@
+/target
+*.swp
+.DS_Store
+# Official icon fetched at install time; never commit
+/data/icons/official/
+/.claude/settings.local.json

@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=io.github.cszach.Muse
+Exec=@BINDIR@/muse --gapplication-service
