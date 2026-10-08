@@ -54,7 +54,7 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
     tab_bar.set_view(Some(&tabs));
     tab_bar.set_autohide(true);
 
-    let title = adw::WindowTitle::new("Muse", "");
+    let title = adw::WindowTitle::new("Calliope", "");
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&title));
 
@@ -79,7 +79,7 @@ fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
         let config = app.config();
         let window = adw::ApplicationWindow::builder()
             .application(&app.gtk)
-            .title("Muse")
+            .title("Calliope")
             .default_width(config.window.width)
             .default_height(config.window.height)
             .content(&toolbar)
@@ -187,7 +187,7 @@ fn main_menu() -> gio::Menu {
 
     let about = gio::Menu::new();
     about.append(Some("_Keyboard Shortcuts"), Some("win.show-shortcuts"));
-    about.append(Some("_About Muse"), Some("app.about"));
+    about.append(Some("_About Calliope"), Some("app.about"));
     menu.append_section(None, &about);
 
     menu
@@ -347,7 +347,7 @@ pub fn add_debug_actions(
 }
 
 /// Debug only: writes the window as rendered to
-/// `~/.cache/muse-client/screenshot.png`, so the UI can be checked without a
+/// `~/.cache/calliope/screenshot.png`, so the UI can be checked without a
 /// screen capture (trigger with `gdbus call ... org.gtk.Actions.Activate`).
 /// It shows the last frame GTK drew: a window that is hidden or covered is
 /// not redrawn, so present it first for an up-to-date picture.

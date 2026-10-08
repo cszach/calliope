@@ -75,7 +75,7 @@ pub fn classify(uri: &str, nav: Navigation, allowed: &[String]) -> Disposition {
     }
 }
 
-/// True for links a `muse URI` launch may open in a tab: web pages only.
+/// True for links a `calliope URI` launch may open in a tab: web pages only.
 /// GIO turns a bare `muse.ai` argument into a `file://` path, and local
 /// files have no business in the Muse session.
 pub fn openable(uri: &str) -> bool {

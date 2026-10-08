@@ -37,7 +37,7 @@ pub fn ask(app: &Rc<App>, text: &str) {
     );
 }
 
-/// Destroys the window if it is hidden and nothing else keeps Muse running,
+/// Destroys the window if it is hidden and nothing else keeps Calliope running,
 /// so a hidden quick-ask window never stops the app from quitting.
 pub fn reap(app: &App) {
     if let Some(window) = app.quick_ask_window() {
@@ -82,7 +82,7 @@ pub fn remember_size(app: &App) {
     app.save_config();
 }
 
-/// Hides the window, or destroys it when it is the last thing keeping Muse
+/// Hides the window, or destroys it when it is the last thing keeping Calliope
 /// running and background mode is off.
 fn dismiss(app: &App, window: &adw::ApplicationWindow) {
     remember_size(app);

@@ -14,8 +14,8 @@ use crate::engine::Engine;
 use crate::notifications;
 use crate::{downloads, hotkey, policy, quick_ask, search_provider, shortcuts, tab, window};
 
-const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
-/// How long a D-Bus-started Muse with no window waits for the next call.
+const REPO_URL: &str = "https://github.com/cszach/calliope";
+/// How long a D-Bus-started Calliope with no window waits for the next call.
 const SERVICE_IDLE_MS: u32 = 30_000;
 
 /// What the first activation of this process should do.
@@ -235,7 +235,7 @@ impl App {
     }
 
     /// Whether a dismissed quick-ask window should stay alive, hidden, for
-    /// next time: only while something else keeps Muse running.
+    /// next time: only while something else keeps Calliope running.
     pub fn keeps_quick_ask(&self) -> bool {
         self.config().background_mode || !self.main_windows().is_empty()
     }
@@ -274,7 +274,7 @@ impl App {
         }
         drop(hold);
         if !on {
-            // A window hidden by background mode would otherwise keep Muse
+            // A window hidden by background mode would otherwise keep Calliope
             // running out of sight.
             for (window, _) in self.main_windows() {
                 if !window.is_visible() {
@@ -332,7 +332,7 @@ impl App {
             if !safe_graphics && !background && !new_window && !quick_ask && ask.is_none() {
                 return ControlFlow::Continue(());
             }
-            // Find out whether Muse is already running; registering runs
+            // Find out whether Calliope is already running; registering runs
             // `startup` when this process is the first.
             if let Err(e) = gtk.register(gio::Cancellable::NONE) {
                 log::error!("cannot register the application: {e}");
@@ -341,8 +341,8 @@ impl App {
             if gtk.is_remote() {
                 if safe_graphics {
                     log::warn!(
-                        "--safe-graphics only applies when Muse starts; quit the running \
-                         Muse (Ctrl+Q) and run this again"
+                        "--safe-graphics only applies when Calliope starts; quit the running \
+                         Calliope (Ctrl+Q) and run this again"
                     );
                 }
                 if let Some(text) = &ask {
@@ -396,7 +396,7 @@ impl App {
                     .connect_window_added(|gtk, _| gtk.set_inactivity_timeout(0));
             }
 
-            // A hidden quick-ask window must not keep Muse alive once the
+            // A hidden quick-ask window must not keep Calliope alive once the
             // last main window has gone.
             let reaper = Rc::clone(&app);
             app.gtk
@@ -447,7 +447,7 @@ impl App {
                 .filter(|uri| {
                     let ok = policy::openable(uri);
                     if !ok {
-                        log::warn!("not opening {uri}: only http and https links open in Muse");
+                        log::warn!("not opening {uri}: only http and https links open in Calliope");
                     }
                     ok
                 })
@@ -489,7 +489,7 @@ impl App {
 
         let app = Rc::clone(self);
         // Activating toggles it (GIO's default for a boolean state); a
-        // second `muse --background` sets it over D-Bus.
+        // second `calliope --background` sets it over D-Bus.
         let background = gio::ActionEntry::builder("background-mode")
             .state(self.config().background_mode.to_variant())
             .change_state(move |_: &GtkApp, _, value| {
@@ -526,7 +526,7 @@ impl App {
         let about = gio::ActionEntry::builder("about")
             .activate(move |_: &GtkApp, _, _| {
                 let dialog = adw::AboutDialog::builder()
-                    .application_name("Muse")
+                    .application_name("Calliope")
                     .application_icon(APP_ID)
                     .developer_name("Zach")
                     .version(env!("CARGO_PKG_VERSION"))

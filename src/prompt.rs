@@ -23,7 +23,7 @@ const STABLE_CHECKS: u32 = 3;
 /// Ten minutes of checks while the page is off screen.
 const HIDDEN_CHECKS: u32 = 300;
 
-/// What `__museEnsure` reported.
+/// What `__calliopeEnsure` reported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Seen {
     /// The page is off screen and may not lay out its composer.
@@ -51,7 +51,7 @@ struct Progress {
     stable: u32,
     /// Checks left while the page is off screen, which do not spend
     /// attempts: a window behind others may only come forward when the user
-    /// clicks GNOME's "Muse is ready".
+    /// clicks GNOME's "Calliope is ready".
     hidden_left: u32,
 }
 
@@ -102,7 +102,7 @@ fn advance(progress: Progress, seen: Option<Seen>) -> Next {
 /// is safe to embed.
 pub fn script(text: &str, selector: &str) -> String {
     format!(
-        "window.__museEnsure ? window.__museEnsure({}, {}) : \"missing\"",
+        "window.__calliopeEnsure ? window.__calliopeEnsure({}, {}) : \"missing\"",
         json(text),
         json(selector)
     )
@@ -110,7 +110,7 @@ pub fn script(text: &str, selector: &str) -> String {
 
 pub fn submit_script(selector: &str) -> String {
     format!(
-        "window.__museSubmit ? window.__museSubmit({}) : false",
+        "window.__calliopeSubmit ? window.__calliopeSubmit({}) : false",
         json(selector)
     )
 }
@@ -118,7 +118,7 @@ pub fn submit_script(selector: &str) -> String {
 /// JavaScript that focuses the composer, if there is one.
 pub fn focus_script(selector: &str) -> String {
     format!(
-        "window.__museFocus ? window.__museFocus({}) : false",
+        "window.__calliopeFocus ? window.__calliopeFocus({}) : false",
         json(selector)
     )
 }
@@ -252,7 +252,7 @@ mod tests {
         let s = script("it's \"quoted\"\n</script>`${x}`", "");
         assert_eq!(
             s,
-            r#"window.__museEnsure ? window.__museEnsure("it's \"quoted\"\n</script>`${x}`", "") : "missing""#
+            r#"window.__calliopeEnsure ? window.__calliopeEnsure("it's \"quoted\"\n</script>`${x}`", "") : "missing""#
         );
     }
 
@@ -263,11 +263,11 @@ mod tests {
         );
         assert_eq!(
             submit_script("#c"),
-            r##"window.__museSubmit ? window.__museSubmit("#c") : false"##
+            r##"window.__calliopeSubmit ? window.__calliopeSubmit("#c") : false"##
         );
         assert_eq!(
             focus_script("#c"),
-            r##"window.__museFocus ? window.__museFocus("#c") : false"##
+            r##"window.__calliopeFocus ? window.__calliopeFocus("#c") : false"##
         );
     }
 

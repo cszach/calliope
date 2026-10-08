@@ -17,7 +17,7 @@ pub struct Engine {
 }
 
 /// The script message `detect-webrtc.js` posts.
-pub const WEBRTC_MESSAGE: &str = "museWebRTC";
+pub const WEBRTC_MESSAGE: &str = "calliopeWebRTC";
 
 const MUSE_ONLY: &[&str] = &["https://muse.ai/*", "https://*.muse.ai/*"];
 

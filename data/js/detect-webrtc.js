@@ -1,4 +1,4 @@
-// Runs at document start in the isolated "muse-client" world, on every page.
+// Runs at document start in the isolated "calliope" world, on every page.
 // WebKitGTK 2.54 has no WebRTC. When a page fails because of that, tell the
 // app so the tab can offer to open the page in a browser that has it.
 //
@@ -11,7 +11,7 @@
   const check = (text) => {
     if (reported || !WEBRTC.test(String(text))) return;
     reported = true;
-    window.webkit.messageHandlers.museWebRTC.postMessage(location.href);
+    window.webkit.messageHandlers.calliopeWebRTC.postMessage(location.href);
   };
   window.addEventListener('error', (e) => check(e.message), true);
   window.addEventListener('unhandledrejection', (e) => {

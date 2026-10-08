@@ -1,6 +1,6 @@
 //! The GNOME Shell search provider: type a question in the Activities
 //! overview and send it to Muse. Shell talks to it over D-Bus on the app's
-//! own bus name, starting Muse as a D-Bus service if it is not running.
+//! own bus name, starting Calliope as a D-Bus service if it is not running.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ use crate::{prompt, window};
 const ID_PREFIX: &str = "ask:";
 const INTERFACE: &str = "org.gnome.Shell.SearchProvider2";
 /// Must match `ObjectPath` in the provider's `.ini`.
-const OBJECT_PATH: &str = "/io/github/cszach/Muse/SearchProvider";
+const OBJECT_PATH: &str = "/io/github/cszach/Calliope/SearchProvider";
 const XML: &str = include_str!("../data/dbus/org.gnome.Shell.SearchProvider2.xml");
 
 /// Exports the provider on the app's D-Bus connection. Called from
@@ -39,7 +39,7 @@ pub fn register(app: &Rc<App>) {
     let result = connection
         .register_object(OBJECT_PATH, &interface)
         .method_call(move |_, _, _, _, method, params, invocation| {
-            // Each call restarts the idle timer of a D-Bus-started Muse.
+            // Each call restarts the idle timer of a D-Bus-started Calliope.
             let _hold = a.gtk.hold();
             handle(&a, method, &params, invocation);
         })

@@ -1,4 +1,4 @@
-# Muse client configuration. Copy to ~/.config/muse-client/config.toml
+# Calliope configuration. Copy to ~/.config/calliope/config.toml
 # Every key is optional; missing keys use the defaults shown here.
 
 # Page loaded in new tabs and the quick-ask window.
@@ -28,7 +28,7 @@ composer_selector = ""
 [quick_ask]
 width = 480
 height = 640
-# Send a prompt from the search provider or `muse --ask` as soon as it is
+# Send a prompt from the search provider or `calliope --ask` as soon as it is
 # typed in. Set to false to review it and press Enter yourself.
 submit = true
 

@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 Version=1.5
-Name=Muse
+Name=Calliope
 GenericName=AI Assistant
 Comment=Unofficial desktop client for Meta's Muse
-Exec=@BINDIR@/muse %U
-Icon=io.github.cszach.Muse
+Exec=@BINDIR@/calliope %U
+Icon=io.github.cszach.Calliope
 Terminal=false
 Categories=Network;Chat;GTK;GNOME;
 Keywords=AI;assistant;agent;chat;Meta;Muse;
@@ -17,8 +17,8 @@ Actions=quick-ask;new-window;
 
 [Desktop Action quick-ask]
 Name=Quick Ask
-Exec=@BINDIR@/muse --quick-ask
+Exec=@BINDIR@/calliope --quick-ask
 
 [Desktop Action new-window]
 Name=New Window
-Exec=@BINDIR@/muse --new-window
+Exec=@BINDIR@/calliope --new-window

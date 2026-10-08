@@ -5,7 +5,10 @@ ICONDIR := $(DATADIR)/icons/hicolor
 AUTOSTARTDIR := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/autostart
 # GNOME Shell reads search providers from system data dirs only.
 SEARCH_PROVIDER_DIR := /usr/local/share/gnome-shell/search-providers
-APP_ID := io.github.cszach.Muse
+APP_ID := io.github.cszach.Calliope
+# The app id and binary before the rename (#24); `make install` removes them.
+OLD_ID := io.github.cszach.Muse
+OLD_BIN := muse
 
 # Data files with the install path filled in.
 GENDIR := target/data
@@ -51,7 +54,7 @@ $(GENDIR)/%: data/%.in FORCE
 	sed 's|@BINDIR@|$(BINDIR)|g' $< > $@
 
 install: build $(GENERATED)
-	install -Dm755 target/release/muse $(BINDIR)/muse
+	install -Dm755 target/release/calliope $(BINDIR)/calliope
 	install -Dm644 $(GENDIR)/$(APP_ID).desktop $(DATADIR)/applications/$(APP_ID).desktop
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
 	@# Prefer the official icon when `make fetch-icon` has downloaded it.
@@ -71,6 +74,14 @@ install: build $(GENERATED)
 		install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-symbolic.svg \
 			$(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg; \
 	fi
+	@# Replace an install from before the rename, keeping autostart if it was on.
+	rm -f $(BINDIR)/$(OLD_BIN) $(DATADIR)/applications/$(OLD_ID).desktop \
+		$(DATADIR)/dbus-1/services/$(OLD_ID).service \
+		$(ICONDIR)/scalable/apps/$(OLD_ID).svg $(ICONDIR)/symbolic/apps/$(OLD_ID)-symbolic.svg \
+		$(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(OLD_ID).png)
+	@if [ -f $(AUTOSTARTDIR)/$(OLD_ID).desktop ]; then \
+		rm -f $(AUTOSTARTDIR)/$(OLD_ID).desktop; \
+		install -Dm644 $(GENDIR)/$(APP_ID).autostart.desktop $(AUTOSTARTDIR)/$(APP_ID).desktop; fi
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
 	@# The session bus reads service files at start and on request.
@@ -78,17 +89,17 @@ install: build $(GENERATED)
 		--method org.freedesktop.DBus.ReloadConfig >/dev/null
 	@if [ -f $(AUTOSTARTDIR)/$(APP_ID).desktop ]; then \
 		install -m644 $(GENDIR)/$(APP_ID).autostart.desktop $(AUTOSTARTDIR)/$(APP_ID).desktop; fi
-	@echo "Installed. If Muse is running, quit it (Ctrl+Q) to start the new version."
+	@echo "Installed. If Calliope is running, quit it (Ctrl+Q) to start the new version."
 
 uninstall: disable-autostart
-	rm -f $(BINDIR)/muse
+	rm -f $(BINDIR)/calliope
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
 	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg
 	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
-	@echo "Settings and login are kept in ~/.config/muse-client and ~/.local/share/muse-client."
+	@echo "Settings and login are kept in ~/.config/calliope and ~/.local/share/calliope."
 
 enable-autostart: $(GENDIR)/$(APP_ID).autostart.desktop
 	install -Dm644 $< $(AUTOSTARTDIR)/$(APP_ID).desktop
@@ -97,6 +108,7 @@ disable-autostart:
 	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
 
 install-search-provider:
+	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(OLD_ID).search-provider.ini
 	sudo install -Dm644 data/$(APP_ID).search-provider.ini \
 		$(SEARCH_PROVIDER_DIR)/$(APP_ID).search-provider.ini
 	@echo "Log out and back in for GNOME Shell to pick it up."
@@ -105,7 +117,7 @@ uninstall-search-provider:
 	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(APP_ID).search-provider.ini
 
 install-shortcut:
-	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/muse --quick-ask'
+	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/calliope --quick-ask'
 
 uninstall-shortcut:
 	scripts/install-shortcut.py --remove

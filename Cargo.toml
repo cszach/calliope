@@ -1,11 +1,11 @@
 [package]
-name = "muse"
+name = "calliope"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Unofficial GNOME desktop client for Meta's Muse (muse.ai)"
 license = "MIT"
-repository = "https://github.com/cszach/muse-gnome"
+repository = "https://github.com/cszach/calliope"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.11", features = ["v4_20"] }

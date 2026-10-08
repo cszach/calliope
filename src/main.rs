@@ -24,8 +24,10 @@ mod zoom;
 use config::Config;
 
 fn main() -> glib::ExitCode {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("muse=info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("calliope=info"))
+        .init();
 
+    paths::migrate_from_old_name();
     let config_path = paths::config_file();
     let (config, config_writable) = Config::load(&config_path);
 
