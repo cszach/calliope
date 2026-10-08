@@ -6,12 +6,22 @@
 
 use std::collections::BTreeMap;
 
-/// Workarounds applied unless the environment or the config sets the key.
+/// Workarounds applied unless the config sets the key. `None` removes the
+/// variable from the environment.
 ///
-/// `WEBKIT_GST_DMABUF_SINK_DISABLED`: with WebKit's DMA-BUF video sink,
-/// muse.ai's H.264 avatar video renders as a solid block (green on screen,
-/// black in snapshots) on WebKitGTK 2.54.1 with an AMD iGPU (#10).
-pub const DEFAULTS: &[(&str, &str)] = &[("WEBKIT_GST_DMABUF_SINK_DISABLED", "1")];
+/// The PRIME offload variables put the whole app on a discrete NVIDIA GPU
+/// when it is launched from a terminal that sets them. muse.ai's avatar
+/// video then renders as a solid green circle, and the app draws more power
+/// for nothing; the desktop composites on the integrated GPU anyway (#10).
+/// Unlike the other defaults these are removed even when the process
+/// environment sets them, since inheriting them is the problem.
+pub const DEFAULTS: &[(&str, Option<&str>)] = &[
+    ("__NV_PRIME_RENDER_OFFLOAD", None),
+    ("__NV_PRIME_RENDER_OFFLOAD_PROVIDER", None),
+    ("__GLX_VENDOR_LIBRARY_NAME", None),
+    ("__VK_LAYER_NV_optimus", None),
+    ("DRI_PRIME", None),
+];
 
 /// What to do with one variable: set it, or remove it (`None`).
 pub type Change = (String, Option<String>);
@@ -25,8 +35,8 @@ pub fn changes(
 ) -> Vec<Change> {
     let mut out: Vec<Change> = DEFAULTS
         .iter()
-        .filter(|(key, _)| !is_set(key) && !config_env.contains_key(*key))
-        .map(|(key, value)| ((*key).to_owned(), Some((*value).to_owned())))
+        .filter(|(key, value)| !config_env.contains_key(*key) && (value.is_none() || !is_set(key)))
+        .map(|(key, value)| ((*key).to_owned(), value.map(str::to_owned)))
         .collect();
     out.extend(config_env.iter().map(|(key, value)| {
         let value = (!value.is_empty()).then(|| value.clone());
@@ -39,7 +49,7 @@ pub fn changes(
 mod tests {
     use super::*;
 
-    const KEY: &str = "WEBKIT_GST_DMABUF_SINK_DISABLED";
+    const OFFLOAD: &str = "__NV_PRIME_RENDER_OFFLOAD";
 
     fn env(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
@@ -49,27 +59,23 @@ mod tests {
     }
 
     #[test]
-    fn defaults_apply_when_nothing_sets_them() {
-        let out = changes(&env(&[]), |_| false);
-        assert!(out.contains(&(KEY.to_owned(), Some("1".to_owned()))));
+    fn offload_variables_are_removed_even_when_inherited() {
+        let out = changes(&env(&[]), |_| true);
+        assert!(out.contains(&(OFFLOAD.to_owned(), None)));
+        assert!(out.contains(&("__GLX_VENDOR_LIBRARY_NAME".to_owned(), None)));
     }
 
     #[test]
-    fn process_environment_wins_over_defaults() {
-        let out = changes(&env(&[]), |k| k == KEY);
-        assert!(out.iter().all(|(k, _)| k != KEY));
-    }
-
-    #[test]
-    fn config_overrides_defaults() {
-        let out = changes(&env(&[(KEY, "0")]), |_| false);
-        assert_eq!(out, vec![(KEY.to_owned(), Some("0".to_owned()))]);
+    fn config_can_opt_back_into_offload() {
+        let out = changes(&env(&[(OFFLOAD, "1")]), |_| true);
+        assert!(out.contains(&(OFFLOAD.to_owned(), Some("1".to_owned()))));
+        assert!(!out.contains(&(OFFLOAD.to_owned(), None)));
     }
 
     #[test]
     fn empty_config_value_removes_the_variable() {
-        let out = changes(&env(&[(KEY, "")]), |_| true);
-        assert_eq!(out, vec![(KEY.to_owned(), None)]);
+        let out = changes(&env(&[("GSK_RENDERER", "")]), |_| true);
+        assert!(out.contains(&("GSK_RENDERER".to_owned(), None)));
     }
 
     #[test]

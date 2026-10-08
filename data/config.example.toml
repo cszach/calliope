@@ -38,9 +38,10 @@ min_chars = 3
 prefix = ""
 
 # Environment variables applied before WebKit starts. See README "Graphics troubleshooting".
-# The app sets WEBKIT_GST_DMABUF_SINK_DISABLED = "1" by default, because the
-# DMA-BUF video sink draws muse.ai's avatar as a solid block. Set a variable to
-# "" here to remove it.
+# The app removes NVIDIA PRIME offload variables (__NV_PRIME_RENDER_OFFLOAD,
+# __GLX_VENDOR_LIBRARY_NAME, DRI_PRIME, ...) inherited from a terminal, because
+# rendering on the discrete GPU turns muse.ai's avatar video solid green. Set
+# one here to opt back in. A variable set to "" is removed.
 [webkit.env]
 # WEBKIT_DISABLE_DMABUF_RENDERER = "1"
 # GSK_RENDERER = "ngl"

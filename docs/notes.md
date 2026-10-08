@@ -57,15 +57,18 @@ its source and the date it was checked. When one changes, edit it in place.
 - If `show-notification` is not handled, WebKit posts its own desktop
   notification, and clicking it cannot raise our window
   (`WebKitNotificationProvider.cpp`). We handle it.
-- **The DMA-BUF video sink breaks muse.ai's avatar.** The avatar is a looping,
-  muted 720×720 H.264 MP4 played from a `blob:` URL in a `<video>`. With
-  WebKit's defaults on this laptop it draws as a solid block: green on screen
-  (Zach, 2026-10-08), black in `WebView` snapshots. Snapshots under
-  `WEBKIT_GST_DMABUF_SINK_DISABLED=1` or `WEBKIT_GST_DISABLE_GL_SINK=1` show
-  the animated character. Demoting the NVIDIA decoders (`nvh264dec`, rank 257,
-  above `avdec_h264` at 256) changed nothing, so the decoder is not the cause.
-  The app sets `WEBKIT_GST_DMABUF_SINK_DISABLED=1` by default
-  (`src/startup_env.rs`); the root cause inside WebKit is not established.
+- **NVIDIA offload turns muse.ai's avatar solid green.** The avatar is a
+  looping, muted 720×720 H.264 MP4 played from a `blob:` URL in a `<video>`.
+  Launched with `__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`
+  (Zach's kitty keybinding sets both, so `make run` from that terminal
+  inherits them), it renders solid green on screen (center pixel 0,75,0),
+  with or without `WEBKIT_GST_DMABUF_SINK_DISABLED`. Without them it renders
+  correctly. Checked 2026-10-08 with the app's own on-screen capture
+  (`win.debug-screenshot`). The app removes the offload variables at startup
+  (`src/startup_env.rs`).
+- `WebView::get_snapshot` is not a faithful picture of video: it drew the
+  avatar black under default settings even when the screen showed it
+  correctly. Use `win.debug-screenshot` with the window in front.
 - Voice mode and the Secure VM "browser take over" view both work in
   WebKitGTK 2.54 without WebRTC (Zach, 2026-10-08).
 - `run-file-chooser` needs no handler; the default opens a native chooser.
