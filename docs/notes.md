@@ -12,6 +12,15 @@ its source and the date it was checked. When one changes, edit it in place.
   `https://auth.muse.ai/aymh/?origin=https://muse.ai`, which redirects through
   `https://www.facebook.com/aymh/redirect-cycle/`. Login is a mobile number or
   email plus a one-time code, with no password (fetched 2026-10-08).
+- In the app, the logged-out chain is `muse.ai` → `auth.muse.ai/aymh` →
+  `facebook.com/aymh/redirect-cycle/` → `https://muse.ai/?aymh_complete=1`,
+  which shows the login form. It works with WebKitGTK's default user agent
+  and default cookie handling plus `CookieAcceptPolicy::Always` (app run,
+  2026-10-08). Before login, muse.ai already sets persistent
+  `hatch_native_auth_*` cookies plus Meta's `datr`, `wd`, `dpr` and `_fbp`;
+  `.facebook.com` sets `datr` and `fr`.
+- muse.ai's Content-Security-Policy uses `manifest-src`, which WebKit does not
+  recognise; the console warning it prints on every load is harmless.
 - The PWA manifest at `https://muse.ai/manifest.json` names the app "Muse",
   `start_url` `/?__pwa=1`, and lists icons at
   `/images/pwa_icons/{any,maskable}/{512,310,256,192,180,144,96,72,64,48,32}.png?v=3`,
