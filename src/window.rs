@@ -1,4 +1,5 @@
-//! The main window: a header bar and one web view.
+//! A main window: header bar, tab bar (shown with two or more tabs) and the
+//! tabs themselves. Every window and tab shares the one web engine.
 
 use std::rc::Rc;
 
@@ -6,28 +7,58 @@ use adw::prelude::*;
 use webkit::prelude::*;
 
 use crate::app::App;
-use crate::webview;
+use crate::{shortcuts, tab, webview, zoom};
 
-pub fn open(app: &Rc<App>, uri: &str) -> adw::ApplicationWindow {
-    let view = webview::new_view(app, None);
+/// Opens a window with one tab per URI, or one tab on the start page.
+pub fn open(app: &Rc<App>, uris: &[String]) -> adw::ApplicationWindow {
+    let (window, tabs) = build(app);
+    if uris.is_empty() {
+        let start = app.config().start_url.clone();
+        add_tab(app, &tabs, &start);
+    } else {
+        for uri in uris {
+            add_tab(app, &tabs, uri);
+        }
+    }
+    window.present();
+    window
+}
+
+/// Adds a tab loading `uri` and selects it.
+pub fn add_tab(app: &Rc<App>, tabs: &adw::TabView, uri: &str) -> adw::TabPage {
+    let child = tab::new(app, None, Some(uri));
+    let page = tabs.append(&child);
+    page.set_title("Muse");
+    tabs.set_selected_page(&page);
+    page
+}
+
+fn build(app: &Rc<App>) -> (adw::ApplicationWindow, adw::TabView) {
+    let tabs = adw::TabView::new();
+    let tab_bar = adw::TabBar::new();
+    tab_bar.set_view(Some(&tabs));
+    tab_bar.set_autohide(true);
 
     let title = adw::WindowTitle::new("Muse", "");
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&title));
 
-    let progress = gtk::ProgressBar::new();
-    progress.add_css_class("osd");
-    progress.set_valign(gtk::Align::Start);
-    progress.set_can_target(false);
-    progress.set_visible(false);
+    let new_tab = gtk::Button::from_icon_name("tab-new-symbolic");
+    new_tab.set_tooltip_text(Some("New Tab"));
+    new_tab.set_action_name(Some("win.new-tab"));
+    header.pack_start(&new_tab);
 
-    let overlay = gtk::Overlay::new();
-    overlay.set_child(Some(&view));
-    overlay.add_overlay(&progress);
+    let menu_button = gtk::MenuButton::new();
+    menu_button.set_icon_name("open-menu-symbolic");
+    menu_button.set_tooltip_text(Some("Main Menu"));
+    menu_button.set_primary(true);
+    menu_button.set_menu_model(Some(&main_menu()));
+    header.pack_end(&menu_button);
 
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
-    toolbar.set_content(Some(&overlay));
+    toolbar.add_top_bar(&tab_bar);
+    toolbar.set_content(Some(&tabs));
 
     let window = {
         let config = app.config();
@@ -43,78 +74,54 @@ pub fn open(app: &Rc<App>, uri: &str) -> adw::ApplicationWindow {
         }
         window
     };
+    window
+        .bind_property("title", &title, "title")
+        .sync_create()
+        .build();
 
-    view.connect_title_notify(glib::clone!(
+    // Page or F11 fullscreen hides the bars; video and the VM view want the
+    // whole screen.
+    window.connect_fullscreened_notify(glib::clone!(
         #[weak]
-        title,
+        toolbar,
+        move |window| toolbar.set_reveal_top_bars(!window.is_fullscreen())
+    ));
+
+    tabs.connect_selected_page_notify(glib::clone!(
         #[weak]
         window,
-        move |view| {
-            let text = view
-                .title()
-                .filter(|t| !t.is_empty())
-                .map(|t| t.to_string())
-                .unwrap_or_else(|| "Muse".to_owned());
-            title.set_title(&text);
-            window.set_title(Some(&text));
-        }
-    ));
-    view.connect_estimated_load_progress_notify(glib::clone!(
-        #[weak]
-        progress,
-        move |view| {
-            let fraction = view.estimated_load_progress();
-            progress.set_fraction(fraction);
-            progress.set_visible(view.is_loading() && fraction < 1.0);
-        }
-    ));
-    view.connect_is_loading_notify(glib::clone!(
-        #[weak]
-        progress,
-        move |view| {
-            if !view.is_loading() {
-                progress.set_visible(false);
+        move |tabs| {
+            if let Some(view) = tabs.selected_page().and_then(|p| tab::view_of(&p.child())) {
+                window.set_title(Some(&tab::title_of(&view)));
             }
         }
     ));
-
-    view.connect_load_changed(|view, event| {
-        if matches!(
-            event,
-            webkit::LoadEvent::Committed | webkit::LoadEvent::Finished
-        ) {
-            log::info!("{event:?} {}", view.uri().unwrap_or_default());
-        }
-    });
-    view.connect_load_failed(|_, _, uri, error| {
-        log::warn!("load failed {uri}: {error}");
-        false
-    });
-    view.connect_web_process_terminated(|_, reason| {
-        log::warn!("web process terminated: {reason:?}");
-    });
-
-    let inspector = gio::ActionEntry::builder("inspector")
-        .activate(glib::clone!(
-            #[weak]
-            view,
-            move |_: &adw::ApplicationWindow, _, _| {
-                if let Some(inspector) = view.inspector() {
-                    inspector.show();
-                }
+    // A window whose last tab closed or was dragged away has no purpose.
+    tabs.connect_page_detached(glib::clone!(
+        #[weak]
+        window,
+        move |tabs, _, _| {
+            if tabs.n_pages() == 0 {
+                window.close();
             }
-        ))
-        .build();
-    if app.debug() {
-        window.add_action_entries([inspector]);
-    }
+        }
+    ));
+    // Dragging a tab out of the window.
+    let a = Rc::clone(app);
+    tabs.connect_create_window(move |_| {
+        let (window, tabs) = build(&a);
+        window.present();
+        Some(tabs)
+    });
+
+    add_actions(app, &window, &tabs);
 
     let a = Rc::clone(app);
     window.connect_close_request(move |window| {
         {
             let mut config = a.config_mut();
             config.window.maximized = window.is_maximized();
-            if !window.is_maximized() {
+            if !window.is_maximized() && !window.is_fullscreen() {
                 let (width, height) = window.default_size();
                 config.window.width = width;
                 config.window.height = height;
@@ -124,7 +131,170 @@ pub fn open(app: &Rc<App>, uri: &str) -> adw::ApplicationWindow {
         glib::Propagation::Proceed
     });
 
-    view.load_uri(uri);
-    window.present();
-    window
+    app.register_window(&window, &tabs);
+    (window, tabs)
+}
+
+fn main_menu() -> gio::Menu {
+    let menu = gio::Menu::new();
+
+    let windows = gio::Menu::new();
+    windows.append(Some("_New Window"), Some("app.new-window"));
+    windows.append(Some("New _Tab"), Some("win.new-tab"));
+    menu.append_section(None, &windows);
+
+    let zoom = gio::Menu::new();
+    zoom.append(Some("Zoom _In"), Some("win.zoom-in"));
+    zoom.append(Some("Zoom _Out"), Some("win.zoom-out"));
+    zoom.append(Some("_Reset Zoom"), Some("win.zoom-reset"));
+    menu.append_section(None, &zoom);
+
+    let page = gio::Menu::new();
+    page.append(Some("Open in _Browser"), Some("win.open-in-browser"));
+    page.append(Some("_Clear Site Data…"), Some("app.clear-site-data"));
+    menu.append_section(None, &page);
+
+    let about = gio::Menu::new();
+    about.append(Some("_Keyboard Shortcuts"), Some("win.show-shortcuts"));
+    about.append(Some("_About Muse"), Some("app.about"));
+    menu.append_section(None, &about);
+
+    menu
+}
+
+fn current_view(tabs: &adw::TabView) -> Option<webkit::WebView> {
+    tabs.selected_page().and_then(|p| tab::view_of(&p.child()))
+}
+
+fn add_actions(app: &Rc<App>, window: &adw::ApplicationWindow, tabs: &adw::TabView) {
+    type Win = adw::ApplicationWindow;
+
+    let on_view = |name: &str, f: fn(&webkit::WebView)| {
+        gio::ActionEntry::builder(name)
+            .activate(glib::clone!(
+                #[weak]
+                tabs,
+                move |_: &Win, _, _| {
+                    if let Some(view) = current_view(&tabs) {
+                        f(&view);
+                    }
+                }
+            ))
+            .build()
+    };
+
+    let a = Rc::clone(app);
+    let new_tab = gio::ActionEntry::builder("new-tab")
+        .activate(glib::clone!(
+            #[weak]
+            tabs,
+            move |_: &Win, _, _| {
+                let start = a.config().start_url.clone();
+                add_tab(&a, &tabs, &start);
+            }
+        ))
+        .build();
+
+    let close_tab = gio::ActionEntry::builder("close-tab")
+        .activate(glib::clone!(
+            #[weak]
+            tabs,
+            move |_: &Win, _, _| {
+                if let Some(page) = tabs.selected_page() {
+                    tabs.close_page(&page);
+                }
+            }
+        ))
+        .build();
+
+    let zoom_action = |name: &str, step: fn(f64) -> f64| {
+        let a = Rc::clone(app);
+        gio::ActionEntry::builder(name)
+            .activate(move |_: &Win, _, _| {
+                let level = step(a.config().zoom_level);
+                a.set_zoom(level);
+            })
+            .build()
+    };
+
+    let fullscreen = gio::ActionEntry::builder("fullscreen")
+        .activate(|window: &Win, _, _| {
+            if window.is_fullscreen() {
+                window.unfullscreen();
+            } else {
+                window.fullscreen();
+            }
+        })
+        .build();
+
+    let open_in_browser = gio::ActionEntry::builder("open-in-browser")
+        .activate(glib::clone!(
+            #[weak]
+            tabs,
+            move |window: &Win, _, _| {
+                if let Some(uri) = current_view(&tabs).and_then(|v| v.uri()) {
+                    webview::open_external(window, &uri);
+                }
+            }
+        ))
+        .build();
+
+    let show_shortcuts = gio::ActionEntry::builder("show-shortcuts")
+        .activate(|window: &Win, _, _| shortcuts::dialog().present(Some(window)))
+        .build();
+
+    window.add_action_entries([
+        new_tab,
+        close_tab,
+        on_view("reload", |v| v.reload()),
+        on_view("reload-bypass-cache", |v| v.reload_bypass_cache()),
+        on_view("back", |v| v.go_back()),
+        on_view("forward", |v| v.go_forward()),
+        zoom_action("zoom-in", zoom::zoom_in),
+        zoom_action("zoom-out", zoom::zoom_out),
+        zoom_action("zoom-reset", |_| 1.0),
+        fullscreen,
+        open_in_browser,
+        show_shortcuts,
+    ]);
+
+    if app.debug() {
+        let screenshot = gio::ActionEntry::builder("debug-screenshot")
+            .activate(|window: &Win, _, _| save_screenshot(window))
+            .build();
+        window.add_action_entries([
+            on_view("inspector", |v| {
+                if let Some(inspector) = v.inspector() {
+                    inspector.show();
+                }
+            }),
+            screenshot,
+        ]);
+    }
+}
+
+/// Debug only: writes the window as rendered to
+/// `~/.cache/muse-client/screenshot.png`, so the UI can be checked without a
+/// screen capture (trigger with `gdbus call ... org.gtk.Actions.Activate`).
+/// It shows the last frame GTK drew: a window that is hidden or covered is
+/// not redrawn, so present it first for an up-to-date picture.
+fn save_screenshot(window: &adw::ApplicationWindow) {
+    let (width, height) = (window.width(), window.height());
+    let paintable = gtk::WidgetPaintable::new(Some(window));
+    let snapshot = gtk::Snapshot::new();
+    paintable.snapshot(&snapshot, f64::from(width), f64::from(height));
+    let Some(node) = snapshot.to_node() else {
+        log::warn!("screenshot: nothing rendered");
+        return;
+    };
+    let Some(renderer) = window.renderer() else {
+        log::warn!("screenshot: window has no renderer");
+        return;
+    };
+    let path = crate::paths::cache_dir().join("screenshot.png");
+    let texture = renderer.render_texture(node, None);
+    match texture.save_to_png(&path) {
+        Ok(()) => log::info!("screenshot saved to {}", path.display()),
+        Err(e) => log::warn!("screenshot failed: {e}"),
+    }
 }

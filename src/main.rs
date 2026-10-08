@@ -8,9 +8,12 @@ mod paths;
 mod permissions;
 mod policy;
 mod popup;
+mod shortcuts;
 mod startup_env;
+mod tab;
 mod webview;
 mod window;
+mod zoom;
 
 use config::Config;
 
