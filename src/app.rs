@@ -297,7 +297,10 @@ impl App {
                     if let Err(e) = result {
                         log::warn!("clearing site data failed: {e}");
                     }
+                    // WebKit hands notification grants to each web process
+                    // when it launches, so restart them to drop the old ones.
                     for view in guard.get_ref().views() {
+                        view.terminate_web_process();
                         view.reload();
                     }
                 },
