@@ -156,13 +156,15 @@ impl App {
             .collect()
     }
 
-    /// The main window to act on: the focused one, else the newest.
+    /// The main window to act on: the focused one, else the newest one on
+    /// screen, else the one background mode hid.
     fn target_window(&self) -> Option<(adw::ApplicationWindow, adw::TabView)> {
         let windows = self.main_windows();
         let active = self.gtk.active_window();
         windows
             .iter()
             .find(|(w, _)| active.as_ref() == Some(w.upcast_ref()))
+            .or_else(|| windows.iter().rev().find(|(w, _)| w.is_visible()))
             .or(windows.last())
             .cloned()
     }
@@ -193,6 +195,16 @@ impl App {
             *hold = Some(self.gtk.hold());
         } else if !on {
             hold.take();
+        }
+        drop(hold);
+        if !on {
+            // A window hidden by background mode would otherwise keep Muse
+            // running out of sight.
+            for (window, _) in self.main_windows() {
+                if !window.is_visible() {
+                    window.destroy();
+                }
+            }
         }
         if let Some(action) = self
             .gtk
@@ -245,8 +257,9 @@ impl App {
             if gtk.is_remote() {
                 if new_window {
                     gtk.activate_action("new-window", None);
+                } else {
+                    gtk.change_action_state("background-mode", &true.to_variant());
                 }
-                // A running Muse is already in the foreground or background.
                 return ControlFlow::Break(glib::ExitCode::SUCCESS);
             }
             if background && !new_window {
@@ -295,6 +308,8 @@ impl App {
 
         let app = Rc::clone(self);
         self.gtk.connect_open(move |gtk, files, _hint| {
+            // Links on the command line mean the user wants to see them.
+            app.start_hidden.set(false);
             let uris: Vec<String> = files
                 .iter()
                 .map(|f| f.uri().to_string())
@@ -351,11 +366,14 @@ impl App {
             .build();
 
         let app = Rc::clone(self);
+        // Activating toggles it (GIO's default for a boolean state); a
+        // second `muse --background` sets it over D-Bus.
         let background = gio::ActionEntry::builder("background-mode")
             .state(self.config().background_mode.to_variant())
-            .activate(move |_: &GtkApp, action, _| {
-                let on = action.state().and_then(|s| s.get::<bool>()) != Some(true);
-                app.set_background_mode(on);
+            .change_state(move |_: &GtkApp, _, value| {
+                if let Some(on) = value.and_then(|v| v.get::<bool>()) {
+                    app.set_background_mode(on);
+                }
             })
             .build();
 

@@ -12,7 +12,6 @@ GENERATED := $(GENDIR)/$(APP_ID).desktop $(GENDIR)/$(APP_ID).service \
 
 # Sizes of the official icon in both the muse.ai manifest and hicolor.
 OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
-OFFICIAL := $(wildcard data/icons/official/*.png)
 
 .PHONY: all build run check fmt clippy test validate install uninstall \
 	enable-autostart disable-autostart fetch-icon FORCE
@@ -50,17 +49,18 @@ install: build $(GENERATED)
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
 	install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-symbolic.svg \
 		$(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg
-ifneq ($(OFFICIAL),)
-	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg
-	for f in $(OFFICIAL); do \
-		size=$$(basename $$f .png); \
-		install -Dm644 $$f $(ICONDIR)/$${size}x$${size}/apps/$(APP_ID).png; \
-	done
-else
-	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)
-	install -Dm644 data/icons/hicolor/scalable/apps/$(APP_ID).svg \
-		$(ICONDIR)/scalable/apps/$(APP_ID).svg
-endif
+	@# Prefer the official icon when `make fetch-icon` has downloaded it.
+	if ls data/icons/official/*.png >/dev/null 2>&1; then \
+		rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg; \
+		for f in data/icons/official/*.png; do \
+			size=$$(basename $$f .png); \
+			install -Dm644 $$f $(ICONDIR)/$${size}x$${size}/apps/$(APP_ID).png; \
+		done; \
+	else \
+		rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png); \
+		install -Dm644 data/icons/hicolor/scalable/apps/$(APP_ID).svg \
+			$(ICONDIR)/scalable/apps/$(APP_ID).svg; \
+	fi
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
 	@# The session bus reads service files at start and on request.
