@@ -28,9 +28,9 @@ composer_selector = ""
 [quick_ask]
 width = 480
 height = 640
-# Press Enter automatically after typing in a prompt from the search provider
-# or `muse --ask`.
-submit = false
+# Send a prompt from the search provider or `muse --ask` as soon as it is
+# typed in. Set to false to review it and press Enter yourself.
+submit = true
 
 [search_provider]
 # Minimum characters typed in the Activities overview before "Ask Muse" appears.
