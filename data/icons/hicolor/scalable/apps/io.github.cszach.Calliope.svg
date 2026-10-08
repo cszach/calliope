@@ -1,12 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8f7cf8"/>
-      <stop offset="1" stop-color="#3584e4"/>
+    <linearGradient id="face" x1="20" y1="12" x2="108" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c061cb"/>
+      <stop offset="1" stop-color="#813d9c"/>
+    </linearGradient>
+    <linearGradient id="vane" x1="-12" y1="0" x2="12" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#deddda"/>
+      <stop offset="1" stop-color="#f6f5f4"/>
     </linearGradient>
   </defs>
-  <rect x="12" y="16" width="104" height="104" rx="24" fill="#1a5fb4"/>
-  <rect x="12" y="8" width="104" height="104" rx="24" fill="url(#face)"/>
-  <path d="M40 32h48a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12H62L46 98V84h-6a12 12 0 0 1-12-12V44a12 12 0 0 1 12-12z" fill="#fff"/>
-  <path d="M64 44c1.7 8 4.6 11 13 13-8.4 2-11.3 5-13 13-1.7-8-4.6-11-13-13 8.4-2 11.3-5 13-13z" fill="#6f7ef0"/>
+  <!-- bubble, with the depth edge GNOME app icons use -->
+  <path d="M30 18h68a16 16 0 0 1 16 16v44a16 16 0 0 1-16 16H52l-22 18V94a16 16 0 0 1-16-16V34a16 16 0 0 1 16-16z" fill="#613583"/>
+  <path d="M30 12h68a16 16 0 0 1 16 16v44a16 16 0 0 1-16 16H52l-22 18V88a16 16 0 0 1-16-16V28a16 16 0 0 1 16-16z" fill="url(#face)"/>
+  <!-- written line -->
+  <path d="M34 70c6-6 10 4 16-2s9-4 13-1" fill="none" stroke="#f6f5f4" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+  <!-- quill -->
+  <g transform="translate(76 42) rotate(38)">
+    <path d="M0-40C-13-27-14 2-4 22L0 30 4 22C14 2 13-27 0-40z" fill="url(#vane)"/>
+    <path d="M0-34V30" stroke="#c0bfbc" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-3 29h6l-3 13z" fill="#241f31"/>
+  </g>
 </svg>
