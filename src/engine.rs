@@ -48,6 +48,10 @@ impl Engine {
             cookies.set_accept_policy(webkit::CookieAcceptPolicy::Always);
         }
         session.set_itp_enabled(false);
+        // Tab icons come from the favicon database, which is off by default.
+        if let Some(data) = session.website_data_manager() {
+            data.set_favicons_enabled(true);
+        }
 
         let context = webkit::WebContext::new();
         let notif_app = Rc::clone(app);
