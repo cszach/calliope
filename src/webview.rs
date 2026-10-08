@@ -6,6 +6,7 @@ use std::rc::Rc;
 use webkit::prelude::*;
 
 use crate::app::App;
+use crate::notifications;
 use crate::permissions;
 use crate::policy::{self, Disposition, Navigation};
 use crate::popup;
@@ -45,6 +46,9 @@ fn wire(app: &Rc<App>, view: &webkit::WebView, in_popup: bool) {
         popup::attach(&a, opener, &popup_view);
         Some(popup_view.upcast())
     });
+
+    let a = Rc::clone(app);
+    view.connect_show_notification(move |view, n| notifications::show(&a, view, n));
 
     let a = Rc::clone(app);
     view.connect_permission_request(move |view, request| permissions::handle(&a, view, request));
