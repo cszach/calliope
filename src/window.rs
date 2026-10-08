@@ -262,7 +262,34 @@ fn add_actions(app: &Rc<App>, window: &adw::ApplicationWindow, tabs: &adw::TabVi
         let screenshot = gio::ActionEntry::builder("debug-screenshot")
             .activate(|window: &Win, _, _| save_screenshot(window))
             .build();
+        // Runs JavaScript in the current tab and logs the result, so pages
+        // can be driven over D-Bus while testing.
+        let eval = gio::ActionEntry::builder("debug-eval")
+            .parameter_type(Some(glib::VariantTy::STRING))
+            .activate(glib::clone!(
+                #[weak]
+                tabs,
+                move |_: &Win, _, param| {
+                    let (Some(view), Some(script)) =
+                        (current_view(&tabs), param.and_then(|p| p.get::<String>()))
+                    else {
+                        return;
+                    };
+                    view.evaluate_javascript(
+                        &script,
+                        None,
+                        None,
+                        gio::Cancellable::NONE,
+                        |result| match result {
+                            Ok(value) => log::info!("debug-eval: {}", value.to_str()),
+                            Err(e) => log::warn!("debug-eval failed: {e}"),
+                        },
+                    );
+                }
+            ))
+            .build();
         window.add_action_entries([
+            eval,
             on_view("inspector", |v| {
                 if let Some(inspector) = v.inspector() {
                     inspector.show();

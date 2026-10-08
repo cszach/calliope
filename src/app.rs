@@ -11,7 +11,8 @@ use webkit::prelude::*;
 use crate::config::Config;
 use crate::consts::APP_ID;
 use crate::engine::Engine;
-use crate::{shortcuts, tab, window};
+use crate::notifications;
+use crate::{downloads, shortcuts, tab, window};
 
 const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
 
@@ -30,6 +31,7 @@ pub struct App {
     engine: OnceCell<Engine>,
     debug_flag: Cell<bool>,
     windows: RefCell<Vec<WindowRef>>,
+    web_notifications: notifications::Live,
 }
 
 impl App {
@@ -54,6 +56,7 @@ impl App {
             engine: OnceCell::new(),
             debug_flag: Cell::new(false),
             windows: RefCell::new(Vec::new()),
+            web_notifications: notifications::Live::default(),
         });
         app.connect_signals();
         app
@@ -93,6 +96,10 @@ impl App {
         self.engine
             .get()
             .expect("engine is created in startup, before any window")
+    }
+
+    pub fn web_notifications(&self) -> &notifications::Live {
+        &self.web_notifications
     }
 
     pub fn register_window(&self, window: &adw::ApplicationWindow, tabs: &adw::TabView) {
@@ -173,6 +180,7 @@ impl App {
             if app.engine.set(engine).is_err() {
                 unreachable!("startup runs once");
             }
+            downloads::attach(&app);
             app.add_actions();
             shortcuts::install(&app.gtk, app.debug());
 
@@ -260,8 +268,65 @@ impl App {
             .activate(move |_: &GtkApp, _, _| app.confirm_clear_site_data())
             .build();
 
-        self.gtk
-            .add_action_entries([new_window, quit, about, clear]);
+        let app = Rc::clone(self);
+        let web_notification = gio::ActionEntry::builder("web-notification")
+            .parameter_type(Some(glib::VariantTy::UINT64))
+            .activate(move |_: &GtkApp, _, param| {
+                if let Some(id) = param.and_then(|p| p.get::<u64>()) {
+                    notifications::clicked(&app, id);
+                }
+            })
+            .build();
+
+        let app = Rc::clone(self);
+        let open_download = gio::ActionEntry::builder("open-download")
+            .parameter_type(Some(glib::VariantTy::STRING))
+            .activate(move |_: &GtkApp, _, param| {
+                if let Some(path) = param.and_then(|p| p.get::<String>()) {
+                    let file = gio::File::for_path(&path);
+                    let parent = app.target_window().map(|(w, _)| w);
+                    gtk::FileLauncher::new(Some(&file)).launch(
+                        parent.as_ref(),
+                        gio::Cancellable::NONE,
+                        move |r| {
+                            if let Err(e) = r {
+                                log::warn!("cannot open {path}: {e}");
+                            }
+                        },
+                    );
+                }
+            })
+            .build();
+
+        let app = Rc::clone(self);
+        let show_download = gio::ActionEntry::builder("show-download")
+            .parameter_type(Some(glib::VariantTy::STRING))
+            .activate(move |_: &GtkApp, _, param| {
+                if let Some(path) = param.and_then(|p| p.get::<String>()) {
+                    let file = gio::File::for_path(&path);
+                    let parent = app.target_window().map(|(w, _)| w);
+                    gtk::FileLauncher::new(Some(&file)).open_containing_folder(
+                        parent.as_ref(),
+                        gio::Cancellable::NONE,
+                        move |r| {
+                            if let Err(e) = r {
+                                log::warn!("cannot show {path}: {e}");
+                            }
+                        },
+                    );
+                }
+            })
+            .build();
+
+        self.gtk.add_action_entries([
+            new_window,
+            quit,
+            about,
+            clear,
+            web_notification,
+            open_download,
+            show_download,
+        ]);
     }
 
     fn confirm_clear_site_data(self: &Rc<Self>) {

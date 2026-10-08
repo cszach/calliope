@@ -3,7 +3,9 @@
 mod app;
 mod config;
 mod consts;
+mod downloads;
 mod engine;
+mod notifications;
 mod paths;
 mod permissions;
 mod policy;
