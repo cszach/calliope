@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.85"
 description = "Unofficial GNOME desktop client for Meta's Muse (muse.ai)"
 license = "MIT"
-repository = "https://github.com/cszach/muse-ai-client"
+repository = "https://github.com/cszach/muse-gnome"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.11", features = ["v4_20"] }
