@@ -157,6 +157,7 @@ fn main_menu() -> gio::Menu {
     let windows = gio::Menu::new();
     windows.append(Some("_New Window"), Some("app.new-window"));
     windows.append(Some("New _Tab"), Some("win.new-tab"));
+    windows.append(Some("_Quick Ask"), Some("app.quick-ask"));
     menu.append_section(None, &windows);
 
     let zoom = gio::Menu::new();
@@ -167,6 +168,7 @@ fn main_menu() -> gio::Menu {
 
     let app = gio::Menu::new();
     app.append(Some("Run in _Background"), Some("app.background-mode"));
+    app.append(Some("Quick Ask _Shortcut…"), Some("app.quick-ask-shortcut"));
     menu.append_section(None, &app);
 
     let page = gio::Menu::new();
@@ -279,50 +281,60 @@ fn add_actions(app: &Rc<App>, window: &adw::ApplicationWindow, tabs: &adw::TabVi
     ]);
 
     if app.debug() {
-        // Closes the window as its close button would.
-        let close = gio::ActionEntry::builder("debug-close")
-            .activate(|window: &Win, _, _| window.close())
-            .build();
-        let screenshot = gio::ActionEntry::builder("debug-screenshot")
-            .activate(|window: &Win, _, _| save_screenshot(window))
-            .build();
-        // Runs JavaScript in the current tab and logs the result, so pages
-        // can be driven over D-Bus while testing.
-        let eval = gio::ActionEntry::builder("debug-eval")
-            .parameter_type(Some(glib::VariantTy::STRING))
-            .activate(glib::clone!(
+        add_debug_actions(
+            window,
+            glib::clone!(
                 #[weak]
                 tabs,
-                move |_: &Win, _, param| {
-                    let (Some(view), Some(script)) =
-                        (current_view(&tabs), param.and_then(|p| p.get::<String>()))
-                    else {
-                        return;
-                    };
-                    view.evaluate_javascript(
-                        &script,
-                        None,
-                        None,
-                        gio::Cancellable::NONE,
-                        |result| match result {
-                            Ok(value) => log::info!("debug-eval: {}", value.to_str()),
-                            Err(e) => log::warn!("debug-eval failed: {e}"),
-                        },
-                    );
-                }
-            ))
-            .build();
-        window.add_action_entries([
-            eval,
-            on_view("inspector", |v| {
-                if let Some(inspector) = v.inspector() {
-                    inspector.show();
-                }
-            }),
-            screenshot,
-            close,
-        ]);
+                #[upgrade_or]
+                None,
+                move || current_view(&tabs)
+            ),
+        );
     }
+}
+
+/// Debug-only actions for driving a window over D-Bus while testing
+/// (`gdbus call ... org.gtk.Actions.Activate`). `current` gives the view
+/// they act on.
+pub fn add_debug_actions(
+    window: &adw::ApplicationWindow,
+    current: impl Fn() -> Option<webkit::WebView> + 'static,
+) {
+    type Win = adw::ApplicationWindow;
+    let current = Rc::new(current);
+
+    // Closes the window as its close button would.
+    let close = gio::ActionEntry::builder("debug-close")
+        .activate(|window: &Win, _, _| window.close())
+        .build();
+    let screenshot = gio::ActionEntry::builder("debug-screenshot")
+        .activate(|window: &Win, _, _| save_screenshot(window))
+        .build();
+    // Runs JavaScript in the current view and logs the result.
+    let view = Rc::clone(&current);
+    let eval = gio::ActionEntry::builder("debug-eval")
+        .parameter_type(Some(glib::VariantTy::STRING))
+        .activate(move |_: &Win, _, param| {
+            let (Some(view), Some(script)) = (view(), param.and_then(|p| p.get::<String>())) else {
+                return;
+            };
+            view.evaluate_javascript(&script, None, None, gio::Cancellable::NONE, |result| {
+                match result {
+                    Ok(value) => log::info!("debug-eval: {}", value.to_str()),
+                    Err(e) => log::warn!("debug-eval failed: {e}"),
+                }
+            });
+        })
+        .build();
+    let inspector = gio::ActionEntry::builder("inspector")
+        .activate(move |_: &Win, _, _| {
+            if let Some(inspector) = current().and_then(|v| v.inspector()) {
+                inspector.show();
+            }
+        })
+        .build();
+    window.add_action_entries([eval, inspector, screenshot, close]);
 }
 
 /// Debug only: writes the window as rendered to

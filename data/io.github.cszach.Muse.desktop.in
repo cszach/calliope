@@ -13,7 +13,11 @@ StartupNotify=true
 DBusActivatable=true
 X-GNOME-UsesNotifications=true
 SingleMainWindow=false
-Actions=new-window;
+Actions=quick-ask;new-window;
+
+[Desktop Action quick-ask]
+Name=Quick Ask
+Exec=@BINDIR@/muse --quick-ask
 
 [Desktop Action new-window]
 Name=New Window
