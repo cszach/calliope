@@ -10,11 +10,15 @@ GENDIR := target/data
 GENERATED := $(GENDIR)/$(APP_ID).desktop $(GENDIR)/$(APP_ID).service \
 	$(GENDIR)/$(APP_ID).autostart.desktop
 
+# Fallback quick-ask key, for desktops without the GlobalShortcuts portal.
+SHORTCUT ?= <Control><Alt>m
+
 # Sizes of the official icon in both the muse.ai manifest and hicolor.
 OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
 
 .PHONY: all build run check fmt clippy test validate install uninstall \
-	enable-autostart disable-autostart fetch-icon FORCE
+	enable-autostart disable-autostart install-shortcut uninstall-shortcut \
+	fetch-icon FORCE
 
 all: build
 
@@ -85,6 +89,12 @@ enable-autostart: $(GENDIR)/$(APP_ID).autostart.desktop
 
 disable-autostart:
 	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
+
+install-shortcut:
+	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/muse --quick-ask'
+
+uninstall-shortcut:
+	scripts/install-shortcut.py --remove
 
 fetch-icon:
 	scripts/fetch-icon.sh $(OFFICIAL_SIZES)

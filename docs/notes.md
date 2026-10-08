@@ -107,6 +107,26 @@ its source and the date it was checked. When one changes, edit it in place.
   `meta-wayland-activation.c`). The GlobalShortcuts portal sends a usable
   `activation_token` in its `Activated` signal options; pass it to
   `gtk::Window::set_startup_id` before `present()`.
+- GlobalShortcuts portal binding (xdg-desktop-portal 1.22.1, -gnome 50.0,
+  GNOME Settings 50.0; sources read 2026-10-08): `BindShortcuts` goes to
+  GNOME Settings' `GlobalShortcutsProvider`, which shows its dialog only when
+  the app asks for a shortcut id it has not stored
+  (`cc_global_shortcut_dialog_present` returns at once when
+  `has_new_shortcuts` is false). Stored bindings live in the
+  `org.gnome.settings-daemon.global-shortcuts` schema: `applications` lists
+  app ids, each with a relocatable `shortcuts` key. A session can bind only
+  once (`shortcuts_session->bound`). The portal reports `GlobalShortcuts`
+  version 1, so `ConfigureShortcuts` (v2) is unavailable; users change a
+  binding in Settings → Keyboard → View and Customize Shortcuts.
+  `preferred_trigger` uses the XDG form (`CTRL+ALT+m`). Host apps identify
+  themselves with `org.freedesktop.host.portal.Registry.Register` before any
+  other portal call; the Claude desktop app is bound this way here.
+- `Registry.Register` fails with "App info not found" unless a desktop file
+  for the app id is installed (checked 2026-10-08), so global shortcuts work
+  only for the installed `io.github.cszach.Muse`, never for a `.Devel`
+  instance. Register and `CreateSession` succeed for the installed id.
+- The portal's `Activated` signal carries an `activation_token` when Mutter
+  provides one (`globalshortcuts.c`, 50.0).
 - There is no app-side "always on top" on GNOME Wayland. The user can use the
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.

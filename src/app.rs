@@ -12,9 +12,22 @@ use crate::config::Config;
 use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::notifications;
-use crate::{downloads, policy, shortcuts, tab, window};
+use crate::{downloads, hotkey, policy, quick_ask, shortcuts, tab, window};
 
 const REPO_URL: &str = "https://github.com/cszach/muse-gnome";
+
+/// What the first activation of this process should do.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+enum Launch {
+    #[default]
+    Normal,
+    /// `--background`: load Muse without showing it.
+    Hidden,
+    /// `--quick-ask`.
+    QuickAsk,
+    /// `--ask TEXT`.
+    Ask(String),
+}
 
 /// A main window and its tabs, held weakly: GTK owns both.
 struct WindowRef {
@@ -34,10 +47,12 @@ pub struct App {
     web_notifications: notifications::Live,
     /// Keeps the process alive with no window while background mode is on.
     background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
-    /// `--background`: the first activation loads Muse without showing it.
-    start_hidden: Cell<bool>,
+    /// Consumed by the first activation.
+    launch: RefCell<Launch>,
     /// Set by Quit, so closing the last window really closes it.
     quitting: Cell<bool>,
+    quick_ask: glib::WeakRef<adw::ApplicationWindow>,
+    hotkey: RefCell<hotkey::State>,
 }
 
 impl App {
@@ -63,6 +78,22 @@ impl App {
             None,
         );
         gtk.add_main_option(
+            "quick-ask",
+            glib::Char::from(b'k'),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::None,
+            "Show or hide the quick-ask window",
+            None,
+        );
+        gtk.add_main_option(
+            "ask",
+            glib::Char::from(b'a'),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::String,
+            "Open the quick-ask window with TEXT typed in",
+            Some("TEXT"),
+        );
+        gtk.add_main_option(
             "new-window",
             glib::Char::from(b'n'),
             glib::OptionFlags::NONE,
@@ -80,8 +111,10 @@ impl App {
             windows: RefCell::new(Vec::new()),
             web_notifications: notifications::Live::default(),
             background_hold: RefCell::new(None),
-            start_hidden: Cell::new(false),
+            launch: RefCell::new(Launch::Normal),
             quitting: Cell::new(false),
+            quick_ask: glib::WeakRef::new(),
+            hotkey: RefCell::new(hotkey::State::default()),
         });
         app.connect_signals();
         app
@@ -134,13 +167,17 @@ impl App {
         });
     }
 
-    /// Live main windows, most recently registered last.
+    /// Live main windows, most recently registered last. A window being
+    /// destroyed can outlive its removal from the application for a moment;
+    /// it no longer counts.
     fn main_windows(&self) -> Vec<(adw::ApplicationWindow, adw::TabView)> {
+        let attached = self.gtk.windows();
         let mut windows = self.windows.borrow_mut();
         windows.retain(|w| w.window.upgrade().is_some() && w.tabs.upgrade().is_some());
         windows
             .iter()
             .filter_map(|w| Some((w.window.upgrade()?, w.tabs.upgrade()?)))
+            .filter(|(w, _)| attached.iter().any(|a| a == w.upcast_ref::<gtk::Window>()))
             .collect()
     }
 
@@ -179,6 +216,43 @@ impl App {
             && self.main_windows().iter().all(|(_, t)| t == tabs)
     }
 
+    pub fn quick_ask_window(&self) -> Option<adw::ApplicationWindow> {
+        self.quick_ask.upgrade()
+    }
+
+    pub fn set_quick_ask_window(&self, window: &adw::ApplicationWindow) {
+        self.quick_ask.set(Some(window));
+    }
+
+    /// Whether a dismissed quick-ask window should stay alive, hidden, for
+    /// next time: only while something else keeps Muse running.
+    pub fn keeps_quick_ask(&self) -> bool {
+        self.config().background_mode || !self.main_windows().is_empty()
+    }
+
+    pub fn hotkey_state(&self) -> hotkey::State {
+        self.hotkey.borrow().clone()
+    }
+
+    pub fn set_hotkey_state(&self, state: hotkey::State) {
+        *self.hotkey.borrow_mut() = state;
+    }
+
+    /// Opens links in tabs of the current window, or a new one.
+    pub fn open_uris(self: &Rc<Self>, uris: &[String]) {
+        match self.target_window() {
+            Some((window, tabs)) => {
+                for uri in uris {
+                    window::add_tab(self, &tabs, uri);
+                }
+                window.present();
+            }
+            None => {
+                window::open(self, uris);
+            }
+        }
+    }
+
     /// Turns background mode on or off, saves it, and updates the menu.
     fn set_background_mode(&self, on: bool) {
         if self.config().background_mode != on {
@@ -205,6 +279,7 @@ impl App {
                     window.destroy();
                 }
             }
+            quick_ask::reap(self);
         }
         if let Some(action) = self
             .gtk
@@ -245,7 +320,13 @@ impl App {
             }
             let background = options.contains("background");
             let new_window = options.contains("new-window");
-            if !background && !new_window {
+            let quick_ask = options.contains("quick-ask");
+            let ask = options
+                .lookup::<String>("ask")
+                .ok()
+                .flatten()
+                .filter(|t| !t.trim().is_empty());
+            if !background && !new_window && !quick_ask && ask.is_none() {
                 return ControlFlow::Continue(());
             }
             // Find out whether Muse is already running; registering runs
@@ -255,17 +336,29 @@ impl App {
                 return ControlFlow::Break(glib::ExitCode::FAILURE);
             }
             if gtk.is_remote() {
-                if new_window {
+                if let Some(text) = &ask {
+                    gtk.activate_action("ask", Some(&text.to_variant()));
+                } else if quick_ask {
+                    gtk.activate_action("quick-ask", None);
+                } else if new_window {
                     gtk.activate_action("new-window", None);
                 } else {
                     gtk.change_action_state("background-mode", &true.to_variant());
                 }
                 return ControlFlow::Break(glib::ExitCode::SUCCESS);
             }
-            if background && !new_window {
+            if background {
                 app.set_background_mode(true);
-                app.start_hidden.set(true);
             }
+            *app.launch.borrow_mut() = if let Some(text) = ask {
+                Launch::Ask(text)
+            } else if quick_ask {
+                Launch::QuickAsk
+            } else if background && !new_window {
+                Launch::Hidden
+            } else {
+                Launch::Normal
+            };
             ControlFlow::Continue(())
         });
 
@@ -281,6 +374,13 @@ impl App {
             app.add_actions();
             app.apply_background_mode();
             shortcuts::install(&app.gtk, app.debug());
+            hotkey::init(&app);
+
+            // A hidden quick-ask window must not keep Muse alive once the
+            // last main window has gone.
+            let reaper = Rc::clone(&app);
+            app.gtk
+                .connect_window_removed(move |_, _| quick_ask::reap(&reaper));
 
             let styled = Rc::clone(&app);
             adw::StyleManager::default().connect_dark_notify(move |_| {
@@ -292,11 +392,22 @@ impl App {
 
         let app = Rc::clone(self);
         self.gtk.connect_activate(move |_| {
-            if app.start_hidden.replace(false) {
-                // Load Muse in a window that is never shown until asked for,
-                // so its notifications arrive from the start.
-                window::create(&app, &[]);
-                return;
+            match app.launch.take() {
+                Launch::Normal => {}
+                Launch::Hidden => {
+                    // Load Muse in a window that is never shown until asked
+                    // for, so its notifications arrive from the start.
+                    window::create(&app, &[]);
+                    return;
+                }
+                Launch::QuickAsk => {
+                    quick_ask::toggle(&app, None);
+                    return;
+                }
+                Launch::Ask(text) => {
+                    quick_ask::ask(&app, &text);
+                    return;
+                }
             }
             match app.target_window() {
                 Some((window, _)) => window.present(),
@@ -309,7 +420,7 @@ impl App {
         let app = Rc::clone(self);
         self.gtk.connect_open(move |gtk, files, _hint| {
             // Links on the command line mean the user wants to see them.
-            app.start_hidden.set(false);
+            app.launch.take();
             let uris: Vec<String> = files
                 .iter()
                 .map(|f| f.uri().to_string())
@@ -325,17 +436,7 @@ impl App {
                 gtk.activate();
                 return;
             }
-            match app.target_window() {
-                Some((window, tabs)) => {
-                    for uri in &uris {
-                        window::add_tab(&app, &tabs, uri);
-                    }
-                    window.present();
-                }
-                None => {
-                    window::open(&app, &uris);
-                }
-            }
+            app.open_uris(&uris);
         });
 
         let app = Rc::clone(self);
@@ -374,6 +475,29 @@ impl App {
                 if let Some(on) = value.and_then(|v| v.get::<bool>()) {
                     app.set_background_mode(on);
                 }
+            })
+            .build();
+
+        let app = Rc::clone(self);
+        let quick_ask = gio::ActionEntry::builder("quick-ask")
+            .activate(move |_: &GtkApp, _, _| quick_ask::toggle(&app, None))
+            .build();
+
+        let app = Rc::clone(self);
+        let ask = gio::ActionEntry::builder("ask")
+            .parameter_type(Some(glib::VariantTy::STRING))
+            .activate(move |_: &GtkApp, _, param| {
+                if let Some(text) = param.and_then(|p| p.get::<String>()) {
+                    quick_ask::ask(&app, &text);
+                }
+            })
+            .build();
+
+        let app = Rc::clone(self);
+        let set_up_shortcut = gio::ActionEntry::builder("quick-ask-shortcut")
+            .activate(move |_: &GtkApp, _, _| {
+                let parent = app.target_window().map(|(w, _)| w.upcast());
+                hotkey::set_up(&app, parent);
             })
             .build();
 
@@ -456,6 +580,9 @@ impl App {
             new_window,
             quit,
             background,
+            quick_ask,
+            ask,
+            set_up_shortcut,
             about,
             clear,
             web_notification,
