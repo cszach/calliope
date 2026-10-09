@@ -1,0 +1,113 @@
+name: Flatpak
+
+# Builds and lints the Flatpak on every change. Publishing the signed
+# repository to GitHub Pages happens for a version tag, or by hand with
+# "Run workflow".
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ID: io.github.cszach.Calliope
+  MANIFEST: build-aux/flatpak/io.github.cszach.Calliope.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    outputs:
+      publish: ${{ steps.publish.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint the manifest
+        run: flatpak-builder-lint --exceptions --user-exceptions build-aux/flatpak/lint-exceptions.json manifest "$MANIFEST"
+
+      - uses: actions/cache@v6
+        with:
+          path: .flatpak-builder
+          key: flatpak-builder-${{ hashFiles('build-aux/flatpak/*', 'Cargo.lock') }}-${{ github.sha }}
+          restore-keys: flatpak-builder-${{ hashFiles('build-aux/flatpak/*', 'Cargo.lock') }}-
+
+      - name: Build
+        run: >
+          flatpak-builder --repo=repo --default-branch=stable --force-clean
+          --disable-rofiles-fuse --install-deps-from=flathub
+          build "$MANIFEST"
+
+      - name: Lint the build
+        run: flatpak-builder-lint --exceptions --user-exceptions build-aux/flatpak/lint-exceptions.json repo repo
+
+      - name: Bundle
+        run: >
+          flatpak build-bundle repo calliope.flatpak "$APP_ID" stable
+          --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: calliope-flatpak
+          path: calliope.flatpak
+
+      - name: Decide whether to publish
+        id: publish
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::FLATPAK_GPG_PRIVATE_KEY is not set, so the repository cannot be signed"
+            exit 1
+          fi
+          echo publish=true >> "$GITHUB_OUTPUT"
+
+      - name: Sign and lay out the site
+        env:
+          KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          PUBLISH: ${{ steps.publish.outputs.publish }}
+        run: |
+          export GNUPGHOME=$(mktemp -d)
+          if [ "$PUBLISH" = true ]; then
+            printf '%s\n' "$KEY" | gpg --batch --import
+          else
+            # A trial run with a throwaway key, served from localhost, so
+            # every change exercises the script and the site can be tried.
+            gpg --batch --passphrase '' --quick-gen-key 'Calliope trial' rsa2048 sign never
+            export CHECK_KEY=0 SITE=http://localhost:8000
+          fi
+          build-aux/flatpak/publish.sh repo public
+          rm -rf "$GNUPGHOME"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.publish.outputs.publish != 'true'
+        with:
+          name: calliope-site-trial
+          path: public
+          include-hidden-files: true
+
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.publish.outputs.publish == 'true'
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

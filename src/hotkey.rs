@@ -2,8 +2,8 @@
 //! from any app, and its activation token lets Wayland focus the window.
 //!
 //! GNOME asks the user to confirm a new binding in a dialog, so the app binds
-//! at startup only when GNOME already has a binding stored for it; otherwise
-//! it waits for the user to choose "Quick Ask Shortcut…" in the menu.
+//! at startup only when the user has bound it before; otherwise it waits for
+//! "Set Up Keyboard Shortcut…" in Preferences.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -48,9 +48,9 @@ fn set_state(state: State) {
     STATE.set(state);
 }
 
-/// Binds the shortcut silently if GNOME already has one stored for this app.
+/// Binds the shortcut silently if the user has bound it before.
 pub fn init(app: &Rc<App>) {
-    if stored_in_gnome(&app_id(app)) {
+    if bound_before(app) {
         start(app, None, STARTUP_RETRIES);
     }
 }
@@ -70,6 +70,23 @@ fn app_id(app: &App) -> String {
         .application_id()
         .map(|id| id.to_string())
         .unwrap_or_default()
+}
+
+/// Outside the sandbox GNOME's own record is the truth; inside, Calliope
+/// cannot read it and relies on its config.
+fn bound_before(app: &App) -> bool {
+    if ashpd::is_sandboxed() {
+        app.config().quick_ask.shortcut_bound
+    } else {
+        stored_in_gnome(&app_id(app))
+    }
+}
+
+fn remember_bound(app: &App, bound: bool) {
+    if app.config().quick_ask.shortcut_bound != bound {
+        app.config_mut().quick_ask.shortcut_bound = bound;
+        app.save_config();
+    }
 }
 
 fn stored_in_gnome(app_id: &str) -> bool {
@@ -97,14 +114,16 @@ fn start(app: &Rc<App>, parent: Option<gtk::Window>, retries: u32) {
             return;
         };
         log::warn!("quick-ask shortcut unavailable: {e}");
-        if let Some(parent) = &parent {
-            let cancelled = matches!(
-                e,
-                ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)
-            );
-            if !cancelled {
-                failed(&e.to_string(), Some(parent));
-            }
+        let cancelled = matches!(
+            e,
+            ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)
+        );
+        if cancelled {
+            // The user dismissed GNOME's dialog: ask again only from
+            // Preferences, never at the next startup.
+            remember_bound(&app, false);
+        } else if let Some(parent) = &parent {
+            failed(&e.to_string(), Some(parent));
         } else if retries > 0 {
             glib::timeout_add_local_once(RETRY_DELAY, move || {
                 if state() == State::Unbound {
@@ -118,7 +137,8 @@ fn start(app: &Rc<App>, parent: Option<gtk::Window>, retries: u32) {
 /// Binds the shortcut, then toggles quick ask on every press. Runs for the
 /// life of the app.
 async fn listen(app: &Rc<App>, parent: Option<gtk::Window>) -> ashpd::Result<()> {
-    if !REGISTERED.get() {
+    // A sandboxed app is identified by Flatpak; only host apps register.
+    if !REGISTERED.get() && !ashpd::is_sandboxed() {
         let id = ashpd::AppID::try_from(app_id(app).as_str())?;
         ashpd::register_host_app(id).await?;
         REGISTERED.set(true);
@@ -160,10 +180,11 @@ async fn bind_and_listen(
         .shortcuts()
         .iter()
         .find(|s| s.id() == SHORTCUT_ID)
-        .map(|s| s.trigger_description().to_owned())
+        .map(|s| key_label(s.trigger_description()))
         .unwrap_or_default();
     log::info!("quick-ask shortcut bound: {trigger:?}");
     set_state(State::Bound(trigger.clone()));
+    remember_bound(app, true);
     if parent.is_some() {
         explain(&trigger, parent.as_ref());
     }
@@ -181,6 +202,22 @@ async fn bind_and_listen(
         quick_ask::toggle(app, token.as_deref());
     }
     Ok(())
+}
+
+/// GNOME describes a trigger as "Press <Control><Alt>m" (the verb is
+/// translated); this gives the key as GTK labels it, "Ctrl+Alt+M", or the
+/// description unchanged if it holds no accelerator.
+fn key_label(description: &str) -> String {
+    accelerator_of(description)
+        .and_then(gtk::accelerator_parse)
+        .filter(|(key, _)| *key != gdk::Key::VoidSymbol)
+        .map(|(key, mods)| gtk::accelerator_get_label(key, mods).to_string())
+        .unwrap_or_else(|| description.to_owned())
+}
+
+/// The accelerator in GNOME's description: its last word.
+fn accelerator_of(description: &str) -> Option<&str> {
+    description.split_whitespace().last()
 }
 
 fn explain(trigger: &str, parent: Option<&gtk::Window>) {
@@ -208,11 +245,33 @@ fn failed(error: &str, parent: Option<&gtk::Window>) {
     } else {
         format!("The desktop’s shortcut service said: {error}")
     };
-    let body = format!(
-        "{cause}\n\nAlternatively, “make install-shortcut” binds Ctrl+Alt+M to \
-         “calliope --quick-ask” as a custom shortcut."
-    );
+    let body = if ashpd::is_sandboxed() {
+        cause
+    } else {
+        format!(
+            "{cause}\n\nAlternatively, “make install-shortcut” binds Ctrl+Alt+M to \
+             “calliope --quick-ask” as a custom shortcut."
+        )
+    };
     let dialog = adw::AlertDialog::new(Some("Can’t Set Up the Shortcut"), Some(&body));
     dialog.add_response("ok", "_OK");
     dialog.present(parent);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::accelerator_of;
+
+    #[test]
+    fn accelerator_is_the_last_word_of_gnomes_description() {
+        assert_eq!(
+            accelerator_of("Press <Control><Alt>m"),
+            Some("<Control><Alt>m")
+        );
+        assert_eq!(
+            accelerator_of("Drücken Sie <Super>space"),
+            Some("<Super>space")
+        );
+        assert_eq!(accelerator_of(""), None);
+    }
 }

@@ -8,6 +8,7 @@ use std::time::Duration;
 use adw::prelude::*;
 
 use crate::app::App;
+use crate::background;
 use crate::policy;
 
 /// How long a spin row must stay still before its value is applied, so
@@ -94,6 +95,23 @@ fn general_page(
             (action, handler)
         });
     background.add(&run_in_background);
+    let start_at_login = adw::SwitchRow::builder()
+        .title("Start at _Login")
+        .use_underline(true)
+        .subtitle("Start Calliope in the background when you log in")
+        .active(config.start_at_login)
+        .build();
+    run_in_background
+        .bind_property("active", &start_at_login, "sensitive")
+        .sync_create()
+        .build();
+    let a = Rc::clone(app);
+    start_at_login.connect_active_notify(move |row| {
+        a.config_mut().start_at_login = row.is_active();
+        a.save_config();
+        background::sync(&a, row.root().and_downcast());
+    });
+    background.add(&start_at_login);
     page.add(&background);
 
     let quick_ask = adw::PreferencesGroup::builder()

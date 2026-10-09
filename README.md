@@ -10,6 +10,18 @@ for its product; Calliope only hosts the public website.
 
 Work in progress. See the [issues](https://github.com/cszach/calliope/issues).
 
+## Install
+
+Calliope is a Flatpak from its own signed repository: open
+[zachnguyen.com/calliope](https://zachnguyen.com/calliope/) and choose
+**Install with GNOME Software**, or run
+
+```sh
+flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref
+```
+
+Updates arrive with your other Flatpak apps.
+
 ## Build
 
 Fedora:
@@ -19,3 +31,6 @@ sudo dnf install gtk4-devel libadwaita-devel webkitgtk6.0-devel
 make build
 make run
 ```
+
+`make install` installs into `~/.local` instead of Flatpak. To build the
+Flatpak, see `build-aux/flatpak/`; CI builds it on every pull request.

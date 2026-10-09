@@ -16,6 +16,8 @@ use crate::consts::{DEFAULT_ALLOWED_HOSTS, DEFAULT_START_URL};
 pub struct Config {
     pub start_url: String,
     pub background_mode: bool,
+    /// Start in the background at login; applies while background mode is on.
+    pub start_at_login: bool,
     pub debug: bool,
     /// Empty means WebKitGTK's default user agent.
     pub user_agent: String,
@@ -36,6 +38,7 @@ impl Default for Config {
         Self {
             start_url: DEFAULT_START_URL.to_owned(),
             background_mode: false,
+            start_at_login: false,
             debug: false,
             user_agent: String::new(),
             zoom_level: 1.0,
@@ -77,6 +80,9 @@ pub struct QuickAskConfig {
     pub width: i32,
     pub height: i32,
     pub submit: bool,
+    /// The user has bound the global shortcut, so it is bound again at
+    /// startup. Inside Flatpak this is the only record of it Calliope can read.
+    pub shortcut_bound: bool,
 }
 
 impl Default for QuickAskConfig {
@@ -85,6 +91,7 @@ impl Default for QuickAskConfig {
             width: 480,
             height: 640,
             submit: true,
+            shortcut_bound: false,
         }
     }
 }

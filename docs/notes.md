@@ -186,6 +186,39 @@ its source and the date it was checked. When one changes, edit it in place.
   `~/.local/share/dbus-1/services/*.service` is picked up after
   `org.freedesktop.DBus.ReloadConfig`, which `make install` calls.
 
+## Flatpak (checked 2026-10-09)
+
+- `org.gnome.Platform//51` (Flathub build of 2026-10-04) has GTK 4.24,
+  libadwaita, `libwebkitgtk-6.0.so.4.19.4`, and GStreamer's libav, VA,
+  PipeWire and PulseAudio plugins. Its `GST_PLUGIN_SYSTEM_PATH` includes the
+  `org.freedesktop.Platform.codecs-extra` extension. It is built on
+  freedesktop 26.08, so the Rust SDK extension is `rust-stable//26.08`.
+- Uninstalling `org.freedesktop.Sdk//26.08` also removes
+  `org.freedesktop.Platform.codecs-extra//26.08-extra`, a related ref that
+  installed apps still use; reinstall it afterwards.
+- The `org.flatpak.Builder` app runs the build on the host through the
+  Flatpak session helper, so its state and build directories must be at the
+  same path inside its sandbox and outside. Its `/tmp` and `/var/tmp` are
+  private, so only paths under `$HOME` work. CI uses
+  `ghcr.io/flathub-infra/flatpak-github-actions:gnome-51` (built on the
+  `flatpak-builder-lint` image, so the linter is on `PATH`), run
+  `--privileged`.
+- A sandboxed app cannot read GNOME's `org.gnome.settings-daemon.global-shortcuts`
+  schema (the runtime does not ship it and GSettings uses the keyfile
+  backend), so Calliope remembers a successful bind in its config. Only host
+  apps call `Registry.Register`; Flatpak identifies sandboxed ones.
+- The Background portal (`RequestBackground`, with `autostart` and
+  `commandline`) asks the user once, then writes the autostart entry on the
+  host itself. A request with `autostart: false` removes it.
+- Flatpak exports `share/gnome-shell/search-providers/*.ini` and
+  `share/dbus-1/services/*.service` from the app into its exports directory,
+  which is on the session's `XDG_DATA_DIRS`. So the search provider needs no
+  sudo, and the service's `Exec` is rewritten to `flatpak run`.
+- GitHub Pages for this repository (enabled 2026-10-09 with the Actions
+  source) is served at `https://zachnguyen.com/calliope/`: the account's
+  user site has a custom domain, and `cszach.github.io/calliope/` answers
+  301 to it. The repository URLs use the canonical address.
+
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 
 - Flathub (docs.flathub.org/docs/for-app-authors/requirements): web

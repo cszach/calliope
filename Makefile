@@ -22,7 +22,7 @@ SHORTCUT ?= <Control><Alt>m
 OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
 
 .PHONY: all build run check fmt clippy test validate bench install uninstall \
-	enable-autostart disable-autostart install-shortcut uninstall-shortcut \
+	install-shortcut uninstall-shortcut \
 	install-search-provider uninstall-search-provider \
 	fetch-icon FORCE
 
@@ -99,7 +99,8 @@ install: build $(GENERATED)
 		install -m644 $(GENDIR)/$(APP_ID).autostart.desktop $(AUTOSTARTDIR)/$(APP_ID).desktop; fi
 	@echo "Installed. If Calliope is running, quit it (Ctrl+Q) to start the new version."
 
-uninstall: disable-autostart
+uninstall:
+	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
 	rm -f $(BINDIR)/calliope
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
@@ -109,12 +110,6 @@ uninstall: disable-autostart
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
 	@echo "Settings and login are kept in ~/.config/calliope and ~/.local/share/calliope."
-
-enable-autostart: $(GENDIR)/$(APP_ID).autostart.desktop
-	install -Dm644 $< $(AUTOSTARTDIR)/$(APP_ID).desktop
-
-disable-autostart:
-	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
 
 install-search-provider:
 	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(OLD_ID).search-provider.ini

@@ -7,6 +7,10 @@ start_url = "https://muse.ai/"
 # Keep running (notifications, quick ask) after the last window is closed.
 background_mode = false
 
+# Start in the background at login (Preferences → Start at Login). Applies
+# while background_mode is on.
+start_at_login = false
+
 # Enable the web inspector (Ctrl+Shift+I) and verbose logging.
 debug = false
 
@@ -31,6 +35,9 @@ height = 640
 # Send a prompt from the search provider or `calliope --ask` as soon as it is
 # typed in. Set to false to review it and press Enter yourself.
 submit = true
+# Set once the global shortcut is bound, so Calliope binds it again at startup
+# without asking. Managed by Calliope.
+shortcut_bound = false
 
 [search_provider]
 # Minimum characters typed in the Activities overview before "Ask Muse" appears.
