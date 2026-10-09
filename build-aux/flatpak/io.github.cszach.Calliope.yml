@@ -14,6 +14,8 @@ finish-args:
   # The microphone, for Muse's voice mode.
   - --socket=pulseaudio
   - --filesystem=xdg-download
+  # The top bar icon (the AppIndicator extension's StatusNotifierWatcher).
+  - --talk-name=org.kde.StatusNotifierWatcher
 modules:
   - name: calliope
     buildsystem: simple
@@ -35,6 +37,7 @@ modules:
       - install -Dm644 data/${FLATPAK_ID}.metainfo.xml -t /app/share/metainfo
       - install -Dm644 data/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg -t /app/share/icons/hicolor/scalable/apps
       - install -Dm644 data/icons/hicolor/symbolic/apps/${FLATPAK_ID}-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps
+      - install -Dm644 data/icons/hicolor/symbolic/apps/${FLATPAK_ID}-attention-symbolic.svg -t /app/share/icons/hicolor/symbolic/apps
     sources:
       - type: dir
         path: ../..

@@ -11,6 +11,10 @@ background_mode = false
 # while background_mode is on.
 start_at_login = false
 
+# An icon in the top bar, with a dot for new notifications. GNOME shows it
+# only with the AppIndicator extension.
+top_bar_icon = true
+
 # Enable the web inspector (Ctrl+Shift+I) and verbose logging.
 debug = false
 

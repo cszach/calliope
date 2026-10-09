@@ -14,7 +14,7 @@ use crate::engine::Engine;
 use crate::notifications;
 use crate::{
     background, downloads, hotkey, policy, preferences, quick_ask, search_provider, shortcuts, tab,
-    window,
+    tray, window,
 };
 
 const REPO_URL: &str = "https://github.com/cszach/calliope";
@@ -393,6 +393,7 @@ impl App {
             background::init(&app);
             hotkey::init(&app);
             search_provider::register(&app);
+            tray::init(&app);
             // Started over D-Bus, possibly by GNOME Shell just to answer a
             // search: stay up between keystrokes instead of exiting as soon
             // as a call returns. Once a window opens, exit normally again.

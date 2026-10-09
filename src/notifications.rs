@@ -9,6 +9,7 @@ use adw::prelude::*;
 
 use crate::app::App;
 use crate::consts::APP_ID;
+use crate::tray;
 
 /// Notifications the page has shown and not yet closed, by WebKit id.
 #[derive(Default)]
@@ -34,6 +35,7 @@ pub fn show(app: &Rc<App>, view: &webkit::WebView, notification: &webkit::Notifi
     note.set_icon(&gio::ThemedIcon::new(APP_ID));
     note.set_default_action_and_target_value("app.web-notification", Some(&id.to_variant()));
     app.gtk.send_notification(Some(&gio_id(id)), &note);
+    tray::notify(app);
 
     let live = app.web_notifications();
     live.0

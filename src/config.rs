@@ -18,6 +18,8 @@ pub struct Config {
     pub background_mode: bool,
     /// Start in the background at login; applies while background mode is on.
     pub start_at_login: bool,
+    /// Show an icon in the top bar (needs the AppIndicator extension).
+    pub top_bar_icon: bool,
     pub debug: bool,
     /// Empty means WebKitGTK's default user agent.
     pub user_agent: String,
@@ -39,6 +41,7 @@ impl Default for Config {
             start_url: DEFAULT_START_URL.to_owned(),
             background_mode: false,
             start_at_login: false,
+            top_bar_icon: true,
             debug: false,
             user_agent: String::new(),
             zoom_level: 1.0,
