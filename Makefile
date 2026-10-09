@@ -21,7 +21,7 @@ SHORTCUT ?= <Control><Alt>m
 # Sizes of the official icon in both the muse.ai manifest and hicolor.
 OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
 
-.PHONY: all build run check fmt clippy test validate install uninstall \
+.PHONY: all build run check fmt clippy test validate bench install uninstall \
 	enable-autostart disable-autostart install-shortcut uninstall-shortcut \
 	install-search-provider uninstall-search-provider \
 	fetch-icon FORCE
@@ -35,6 +35,12 @@ run:
 	cargo run -- --debug
 
 check: fmt clippy test validate
+
+# Measures memory, CPU and startup in a headless compositor (docs/performance.md).
+# PROFILE: a directory with data/, config/ and cache/ XDG roots, e.g. a copy
+# of a logged-in profile.
+bench: build
+	scripts/bench-headless $(if $(PROFILE),--profile $(PROFILE))
 
 fmt:
 	cargo fmt --all -- --check

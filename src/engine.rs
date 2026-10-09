@@ -16,6 +16,11 @@ pub struct Engine {
     pub policies: webkit::WebsitePolicies,
 }
 
+/// The memory limit WebKit's pressure handler works against, per web
+/// process. 300, 400 and 500 all gave the same savings within noise; the
+/// highest keeps garbage collection least eager.
+const WEB_PROCESS_MEMORY_LIMIT_MB: u32 = 500;
+
 /// The script message `detect-webrtc.js` posts.
 pub const WEBRTC_MESSAGE: &str = "calliopeWebRTC";
 
@@ -78,7 +83,17 @@ impl Engine {
             data.set_favicons_enabled(true);
         }
 
-        let context = webkit::WebContext::new();
+        // Web processes start releasing caches and collecting garbage well
+        // before memory gets tight: muse.ai's page settles about 90 MiB
+        // smaller for a few points of CPU while visible (docs/performance.md).
+        let mut pressure = webkit::MemoryPressureSettings::new();
+        pressure.set_memory_limit(WEB_PROCESS_MEMORY_LIMIT_MB);
+        // Never kill a page for its size (WebKit's default, made explicit:
+        // muse.ai's page alone is close to the limit).
+        pressure.set_kill_threshold(0.0);
+        let context = webkit::WebContext::builder()
+            .memory_pressure_settings(&pressure)
+            .build();
         let notif_app = Rc::clone(app);
         context.connect_initialize_notification_permissions(move |ctx| {
             let config = notif_app.config();

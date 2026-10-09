@@ -102,6 +102,20 @@ its source and the date it was checked. When one changes, edit it in place.
   boxes (`getClientRects()` empty), so a prompt fill must wait until the
   window is on screen (checked 2026-10-08).
 
+- Logged in, muse.ai's home page keeps a looping 720×720 H.264 avatar video
+  playing through Media Source Extensions while the window is on screen
+  (checked 2026-10-08 with a probe counting playing videos). The web
+  process decodes it with `libgstlibav` (software) and loads
+  `videoconvertscale`; that video is most of the idle cost of a visible
+  window. Covered or hidden, WebKit pauses it and the app idles near 0 %.
+- Fedora's `mesa-va-drivers` exposes only JPEG and MPEG-2 decoding on this
+  AMD GPU (`gst-inspect-1.0 | grep va:`); H.264, HEVC and VP9 hardware
+  decoding needs RPM Fusion's `mesa-va-drivers-freeworld`.
+- Benchmarks must run in a compositor of their own: on the desktop, whether
+  another window covers Calliope swings idle CPU between 0 % and 90 %.
+  `scripts/bench-headless` runs `mutter --headless --virtual-monitor` in a
+  private D-Bus session; the page reports itself visible and focused there.
+
 ## Graphics on this laptop
 
 - AMD Cezanne iGPU (`/dev/dri/renderD128`, radeonsi) drives the session;
