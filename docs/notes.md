@@ -162,6 +162,16 @@ its source and the date it was checked. When one changes, edit it in place.
   instance. Register and `CreateSession` succeed for the installed id.
 - The portal's `Activated` signal carries an `activation_token` when Mutter
   provides one (`globalshortcuts.c`, 50.0).
+- GNOME has no tray. The AppIndicator extension (`appindicatorsupport@rgcjonas.gmail.com`,
+  v66 here, checked 2026-10-09) hosts `org.kde.StatusNotifierWatcher` and shows each
+  registered StatusNotifierItem in the top bar. It hides items whose `Status` is
+  `Passive`, shows `AttentionIconName` for `NeedsAttention`, and calls
+  `ProvideXdgActivationToken(token)` before `Activate` and before a menu click
+  (`appIndicator.js`, `dbusMenu.js`). The `ksni` crate (0.3.6) does not implement that
+  method. An icon the extension cannot load appears as three dots
+  (`image-loading-symbolic`). GNOME Shell looks icons up through `icon-theme.cache`, so an
+  icon copied into `~/.local/share/icons` without `gtk4-update-icon-cache` stays invisible
+  to it.
 - There is no app-side "always on top" on GNOME Wayland. The user can use the
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.
