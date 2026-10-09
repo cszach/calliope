@@ -20,7 +20,10 @@ Calliope is a Flatpak from its own signed repository: open
 flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref
 ```
 
-Updates arrive with your other Flatpak apps.
+Updates arrive with your other Flatpak apps. Flatpak installs every app's
+overview search switched off: to ask Muse from the Activities overview, turn
+Calliope on in **Settings → Search** (Calliope's Preferences has a button for
+it).
 
 ## Build
 

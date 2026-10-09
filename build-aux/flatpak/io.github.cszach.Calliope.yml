@@ -16,6 +16,8 @@ finish-args:
   - --filesystem=xdg-download
   # The top bar icon (the AppIndicator extension's StatusNotifierWatcher).
   - --talk-name=org.kde.StatusNotifierWatcher
+  # Preferences opens the Search panel of GNOME Settings.
+  - --talk-name=org.gnome.Settings
 modules:
   - name: calliope
     buildsystem: simple
