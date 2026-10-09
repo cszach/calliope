@@ -69,11 +69,6 @@ jobs:
             echo "::error::FLATPAK_GPG_PRIVATE_KEY is not set, so the repository cannot be signed"
             exit 1
           fi
-          version=$(build-aux/version.sh)
-          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match version $version in Cargo.toml"
-            exit 1
-          fi
           echo publish=true >> "$GITHUB_OUTPUT"
 
       - name: Sign and lay out the site
@@ -118,6 +113,7 @@ jobs:
           xz appstream
       - uses: actions/checkout@v7
 
+      # deploy waits for this job, so a mismatched tag publishes nothing.
       - name: Check the version
         run: |
           version=$(build-aux/version.sh)
@@ -148,7 +144,9 @@ jobs:
           path: target/dist
 
   deploy:
-    needs: flatpak
+    # The source job too: a tag whose tarball or notes fail publishes
+    # nothing, rather than a Flatpak update with no release.
+    needs: [flatpak, source]
     if: needs.flatpak.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -170,8 +168,10 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: calliope-{flatpak,source}
-          merge-multiple: true
+          name: calliope-flatpak
+      - uses: actions/download-artifact@v8
+        with:
+          name: calliope-source
 
       - name: Publish the release
         env:
