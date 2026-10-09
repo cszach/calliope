@@ -168,7 +168,13 @@ its source and the date it was checked. When one changes, edit it in place.
   `Passive`, shows `AttentionIconName` for `NeedsAttention`, and calls
   `ProvideXdgActivationToken(token)` before `Activate` and before a menu click
   (`appIndicator.js`, `dbusMenu.js`). The `ksni` crate (0.3.6) does not implement that
-  method. An icon the extension cannot load appears as three dots
+  method. When the extension starts (login, re-enable) it also scans the bus
+  (`tools/busAnalyzer.js`, 2 s later) and files any object at `/StatusNotifierItem`
+  under the connection's first well-known name; `indicatorId()` keys items as that
+  name, or `<unique>@<path>` for one registered by unique name. An app registering
+  with its unique name after the scan therefore gets a second icon (seen on Zach's
+  login, 2026-10-09); registering with the app id gives the same key either way.
+  An icon the extension cannot load appears as three dots
   (`image-loading-symbolic`). GNOME Shell looks icons up through `icon-theme.cache`, so an
   icon copied into `~/.local/share/icons` without `gtk4-update-icon-cache` stays invisible
   to it.

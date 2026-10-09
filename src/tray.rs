@@ -4,8 +4,8 @@
 //! focused for since.
 //!
 //! The item and its `com.canonical.dbusmenu` menu are exported on the app's
-//! own connection and registered under its unique name, so the Flatpak needs
-//! only to talk to the watcher. The extension sends an activation token
+//! own connection and registered under the app's bus name, so the Flatpak
+//! needs only to talk to the watcher. The extension sends an activation token
 //! before each click (`ProvideXdgActivationToken`), which lets Wayland focus
 //! the window the click opens.
 
@@ -117,12 +117,16 @@ fn start(app: &Rc<App>) {
         log::warn!("top bar icon: {e}");
         return;
     }
+    let Some(name) = app.gtk.application_id().map(|id| id.to_string()) else {
+        log::warn!("top bar icon: the app has no id");
+        return;
+    };
     // The watcher comes and goes with the extension and with GNOME Shell.
     let _ = gio::bus_watch_name_on_connection(
         &connection,
         WATCHER,
         gio::BusNameWatcherFlags::NONE,
-        |connection, _, _| register(&connection),
+        move |connection, _, _| register(&connection, &name),
         |_, _| log::debug!("top bar icon: no StatusNotifierWatcher"),
     );
 
@@ -178,16 +182,18 @@ fn export(app: &Rc<App>, connection: &gio::DBusConnection) -> Result<(), String>
     Ok(())
 }
 
-fn register(connection: &gio::DBusConnection) {
-    let Some(name) = connection.unique_name() else {
-        return;
-    };
+/// Registers under the app's well-known name, not the unique one: when the
+/// extension starts it also scans the bus for items and files any it finds
+/// under the connection's well-known name. Registering under that same name
+/// makes the two meet as one item whichever comes first; a unique name made
+/// them two icons.
+fn register(connection: &gio::DBusConnection, name: &str) {
     connection.call(
         Some(WATCHER),
         "/StatusNotifierWatcher",
         WATCHER,
         "RegisterStatusNotifierItem",
-        Some(&(name.as_str(),).to_variant()),
+        Some(&(name,).to_variant()),
         None,
         gio::DBusCallFlags::NONE,
         -1,
