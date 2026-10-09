@@ -180,7 +180,7 @@ async fn bind_and_listen(
         .shortcuts()
         .iter()
         .find(|s| s.id() == SHORTCUT_ID)
-        .map(|s| s.trigger_description().to_owned())
+        .map(|s| key_label(s.trigger_description()))
         .unwrap_or_default();
     log::info!("quick-ask shortcut bound: {trigger:?}");
     set_state(State::Bound(trigger.clone()));
@@ -202,6 +202,22 @@ async fn bind_and_listen(
         quick_ask::toggle(app, token.as_deref());
     }
     Ok(())
+}
+
+/// GNOME describes a trigger as "Press <Control><Alt>m" (the verb is
+/// translated); this gives the key as GTK labels it, "Ctrl+Alt+M", or the
+/// description unchanged if it holds no accelerator.
+fn key_label(description: &str) -> String {
+    accelerator_of(description)
+        .and_then(gtk::accelerator_parse)
+        .filter(|(key, _)| *key != gdk::Key::VoidSymbol)
+        .map(|(key, mods)| gtk::accelerator_get_label(key, mods).to_string())
+        .unwrap_or_else(|| description.to_owned())
+}
+
+/// The accelerator in GNOME's description: its last word.
+fn accelerator_of(description: &str) -> Option<&str> {
+    description.split_whitespace().last()
 }
 
 fn explain(trigger: &str, parent: Option<&gtk::Window>) {
@@ -240,4 +256,22 @@ fn failed(error: &str, parent: Option<&gtk::Window>) {
     let dialog = adw::AlertDialog::new(Some("Can’t Set Up the Shortcut"), Some(&body));
     dialog.add_response("ok", "_OK");
     dialog.present(parent);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::accelerator_of;
+
+    #[test]
+    fn accelerator_is_the_last_word_of_gnomes_description() {
+        assert_eq!(
+            accelerator_of("Press <Control><Alt>m"),
+            Some("<Control><Alt>m")
+        );
+        assert_eq!(
+            accelerator_of("Drücken Sie <Super>space"),
+            Some("<Super>space")
+        );
+        assert_eq!(accelerator_of(""), None);
+    }
 }
