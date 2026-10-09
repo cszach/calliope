@@ -152,7 +152,7 @@ impl App {
         match saved {
             Ok(()) => *self.config_saved.borrow_mut() = config.clone(),
             Err(e) => log::warn!(
-                "not saving settings to {} until it is fixed: {e}",
+                "cannot save settings to {}, trying again at the next change: {e}",
                 self.config_path.display()
             ),
         }

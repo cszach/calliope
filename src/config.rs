@@ -235,11 +235,15 @@ impl Config {
     /// last read or wrote the file, into the file as it is now: keys edited
     /// by hand meanwhile, and keys Calliope does not know, stay. A file that
     /// cannot be read, or would not load, is left untouched and is an error.
+    /// With nothing changed, the file is not touched at all.
     ///
     /// Values equal to the defaults are left out, so a changed default
     /// reaches existing installs. The write is atomic: a crash mid-write
     /// leaves the old file.
     pub fn save(&self, path: &Path, saved: &Self) -> io::Result<()> {
+        if self == saved {
+            return Ok(());
+        }
         let mut file = match std::fs::read_to_string(path) {
             Ok(text) => {
                 toml::from_str(&text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
@@ -325,7 +329,11 @@ mod tests {
     #[test]
     fn saving_defaults_writes_no_settings() {
         let path = temp_path("defaults");
-        Config::default().save(&path, &Config::default()).unwrap();
+        let saved = Config {
+            background_mode: true,
+            ..Config::default()
+        };
+        Config::default().save(&path, &saved).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         let settings: Vec<&str> = text
             .lines()
@@ -388,6 +396,16 @@ mod tests {
         assert_eq!(loaded.webkit.env["GST_DEBUG"], "2");
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("future_key = 1"), "unknown key lost:\n{text}");
+    }
+
+    #[test]
+    fn saving_nothing_changed_leaves_the_file_alone() {
+        let path = temp_path("unchanged");
+        let text = "# pinned\nzoom_level = 1.0\n";
+        std::fs::write(&path, text).unwrap();
+        let cfg = Config::default();
+        cfg.save(&path, &cfg).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
     }
 
     #[test]
