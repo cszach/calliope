@@ -81,9 +81,16 @@
   </keywords>
 
   <releases>
-    <release version="0.1.0" date="2026-10-08">
+    <release version="0.1.0" date="2026-10-09">
       <description>
-        <p>First release.</p>
+        <p>The first release of Calliope:</p>
+        <ul>
+          <li>Muse in its own window, with tabs and windows that share one login</li>
+          <li>Quick Ask, opened from any app with a keyboard shortcut</li>
+          <li>Ask Muse from the Activities overview search</li>
+          <li>Background mode, with notifications and a top bar icon</li>
+          <li>Downloads, file uploads and voice mode</li>
+        </ul>
       </description>
     </release>
   </releases>

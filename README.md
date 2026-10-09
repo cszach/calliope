@@ -30,10 +30,16 @@ it).
 Fedora:
 
 ```sh
-sudo dnf install gtk4-devel libadwaita-devel webkitgtk6.0-devel
+sudo dnf install git make gcc cargo gtk4-devel libadwaita-devel webkitgtk6.0-devel
+git clone https://github.com/cszach/calliope.git
+cd calliope
 make build
 make run
 ```
+
+Each [release](https://github.com/cszach/calliope/releases) also has a
+source tarball with every Rust crate included, which builds the same way
+without network access.
 
 `make install` installs into `~/.local` instead of Flatpak. To build the
 Flatpak, see `build-aux/flatpak/`; CI builds it on every pull request.

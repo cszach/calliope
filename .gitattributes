@@ -1,0 +1,3 @@
+# Not needed to build from a source tarball.
+/.claude export-ignore
+/.github export-ignore
