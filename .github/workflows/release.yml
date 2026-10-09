@@ -143,6 +143,39 @@ jobs:
           name: calliope-source
           path: target/dist
 
+  # The bundle installed as a new user would, into a fresh home with
+  # nothing but Flathub's runtime, and run in headless desktops. Not a gate
+  # for publishing: it depends on muse.ai answering.
+  smoke:
+    needs: flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+      options: --privileged
+    steps:
+      - name: Install Flatpak and a headless desktop
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          flatpak gnome-shell xorg-x11-server-Xvfb ImageMagick python3-gobject python3-dbusmock dbus-daemon
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: calliope-flatpak
+      # GNOME Shell needs a system bus and logind, which containers lack.
+      - name: Start a system bus with a stand-in logind
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          python3 -m dbusmock --system --template logind > dbusmock.log 2>&1 &
+      - name: Run the Flatpak in headless desktops
+        shell: bash
+        run: scripts/smoke.py --flatpak calliope.flatpak --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-flatpak
+          path: smoke
+
   deploy:
     # The source job too: a tag whose tarball or notes fail publishes
     # nothing, rather than a Flatpak update with no release.

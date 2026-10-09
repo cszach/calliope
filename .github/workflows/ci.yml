@@ -29,3 +29,45 @@ jobs:
           key: cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-
       - run: make check
+
+  # The README's Ubuntu build, with Ubuntu's own GTK, libadwaita and
+  # WebKitGTK, then the result run in headless desktops.
+  ubuntu:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+      # WebKit's web process sandbox (bubblewrap) needs it.
+      options: --privileged
+    steps:
+      - name: Install build dependencies and a headless desktop
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: >
+          apt-get update && apt-get install -y --no-install-recommends
+          git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+          ca-certificates gnome-shell xvfb imagemagick python3-gi python3-dbusmock dbus-daemon
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ubuntu-cargo-
+      # GNOME Shell needs a system bus and logind, which containers lack.
+      - name: Start a system bus with a stand-in logind
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          python3 -m dbusmock --system --template logind > dbusmock.log 2>&1 &
+      - run: make build
+      - name: Run it in headless desktops
+        shell: bash
+        run: scripts/smoke.py --binary target/release/calliope --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-ubuntu
+          path: smoke
+

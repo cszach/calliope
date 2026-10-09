@@ -4,3 +4,4 @@
 # Official icon fetched at install time; never commit
 /data/icons/official/
 /.claude/settings.local.json
+__pycache__/
