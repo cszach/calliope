@@ -162,6 +162,16 @@ its source and the date it was checked. When one changes, edit it in place.
   instance. Register and `CreateSession` succeed for the installed id.
 - The portal's `Activated` signal carries an `activation_token` when Mutter
   provides one (`globalshortcuts.c`, 50.0).
+- GNOME has no tray. The AppIndicator extension (`appindicatorsupport@rgcjonas.gmail.com`,
+  v66 here, checked 2026-10-09) hosts `org.kde.StatusNotifierWatcher` and shows each
+  registered StatusNotifierItem in the top bar. It hides items whose `Status` is
+  `Passive`, shows `AttentionIconName` for `NeedsAttention`, and calls
+  `ProvideXdgActivationToken(token)` before `Activate` and before a menu click
+  (`appIndicator.js`, `dbusMenu.js`). The `ksni` crate (0.3.6) does not implement that
+  method. An icon the extension cannot load appears as three dots
+  (`image-loading-symbolic`). GNOME Shell looks icons up through `icon-theme.cache`, so an
+  icon copied into `~/.local/share/icons` without `gtk4-update-icon-cache` stays invisible
+  to it.
 - There is no app-side "always on top" on GNOME Wayland. The user can use the
   window menu's "Always on Top" or bind `org.gnome.desktop.wm.keybindings
   toggle-above`.
@@ -189,7 +199,8 @@ its source and the date it was checked. When one changes, edit it in place.
 ## Flatpak (checked 2026-10-09)
 
 - `org.gnome.Platform//51` (Flathub build of 2026-10-04) has GTK 4.24,
-  libadwaita, `libwebkitgtk-6.0.so.4.19.4`, and GStreamer's libav, VA,
+  libadwaita, WebKitGTK 2.54.1 (`libwebkitgtk-6.0.so.4.19.4`, the same release
+  as Fedora 44's, so still no WebRTC), and GStreamer's libav, VA,
   PipeWire and PulseAudio plugins. Its `GST_PLUGIN_SYSTEM_PATH` includes the
   `org.freedesktop.Platform.codecs-extra` extension. It is built on
   freedesktop 26.08, so the Rust SDK extension is `rust-stable//26.08`.
@@ -220,6 +231,18 @@ its source and the date it was checked. When one changes, edit it in place.
   xdg-document-portal` mounts it again. Seen on Zach's machine 2026-10-09,
   the morning /home had filled up; GNOME Software's Open did nothing until
   the restart.
+- `flatpak run --env=XDG_CONFIG_HOME=…` (and the other XDG variables) does not
+  take effect: Flatpak sets them to `~/.var/app/<id>/…` itself. A test run of
+  an installed app id therefore uses the real profile in `~/.var/app`, even under
+  another `--gapplication-app-id` (checked 2026-10-09, by mistake, on Zach's
+  profile).
+- xdg-dbus-proxy (`flatpak-proxy.c`, main, read 2026-10-09) treats an outgoing
+  message with no destination as talking to the bus, which every app may do, so
+  a sandboxed app's broadcast signals (such as StatusNotifierItem's `NewStatus`)
+  get out. Incoming method calls are not filtered, and replies are allowed once
+  per outstanding call, so the top bar extension can call into the app with only
+  `--talk-name=org.kde.StatusNotifierWatcher`. Checked live: the sandboxed build
+  registers and its properties read from outside.
 - GitHub Pages for this repository (enabled 2026-10-09 with the Actions
   source) is served at `https://zachnguyen.com/calliope/`: the account's
   user site has a custom domain, and `cszach.github.io/calliope/` answers

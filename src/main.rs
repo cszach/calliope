@@ -19,6 +19,7 @@ mod search_provider;
 mod shortcuts;
 mod startup_env;
 mod tab;
+mod tray;
 mod webview;
 mod window;
 mod zoom;

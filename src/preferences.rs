@@ -10,6 +10,7 @@ use adw::prelude::*;
 use crate::app::App;
 use crate::background;
 use crate::policy;
+use crate::tray;
 
 /// How long a spin row must stay still before its value is applied, so
 /// holding a button does not rewrite the config file on every step.
@@ -112,6 +113,15 @@ fn general_page(
         background::sync(&a, row.root().and_downcast());
     });
     background.add(&start_at_login);
+    let top_bar = adw::SwitchRow::builder()
+        .title("Show in _Top Bar")
+        .use_underline(true)
+        .subtitle("An icon with a dot for new notifications; needs the AppIndicator extension")
+        .active(config.top_bar_icon)
+        .build();
+    let a = Rc::clone(app);
+    top_bar.connect_active_notify(move |row| tray::set_shown(&a, row.is_active()));
+    background.add(&top_bar);
     page.add(&background);
 
     let quick_ask = adw::PreferencesGroup::builder()
