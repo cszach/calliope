@@ -27,12 +27,12 @@ jobs:
     outputs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Lint the manifest
         run: flatpak-builder-lint --exceptions --user-exceptions build-aux/flatpak/lint-exceptions.json manifest "$MANIFEST"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: .flatpak-builder
           key: flatpak-builder-${{ hashFiles('build-aux/flatpak/*', 'Cargo.lock') }}-${{ github.sha }}
@@ -52,7 +52,7 @@ jobs:
           flatpak build-bundle repo calliope.flatpak "$APP_ID" stable
           --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: calliope-flatpak
           path: calliope.flatpak
@@ -86,14 +86,14 @@ jobs:
           build-aux/flatpak/publish.sh repo public
           rm -rf "$GNUPGHOME"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.publish.outputs.publish != 'true'
         with:
           name: calliope-site-trial
           path: public
           include-hidden-files: true
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: steps.publish.outputs.publish == 'true'
         with:
           path: public
@@ -110,4 +110,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
