@@ -263,6 +263,12 @@ its source and the date it was checked. When one changes, edit it in place.
   source) is served at `https://zachnguyen.com/calliope/`: the account's
   user site has a custom domain, and `cszach.github.io/calliope/` answers
   301 to it. The repository URLs use the canonical address.
+- The `github-pages` environment that enabling Pages creates lets only the
+  `main` branch deploy; a tag's deploy job fails with "Tag "v0.1.0" is not
+  allowed to deploy to github-pages due to environment protection rules".
+  A tag policy `v*` was added on 2026-10-09 (`gh api -X POST
+  repos/cszach/calliope/environments/github-pages/deployment-branch-policies
+  -f name='v*' -f type=tag`), so release tags deploy.
 
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 

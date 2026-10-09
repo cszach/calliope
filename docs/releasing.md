@@ -22,6 +22,9 @@ the signed Flatpak repository to GitHub Pages, and creates the GitHub release
 with `calliope-X.Y.Z-x86_64.flatpak`, `calliope-X.Y.Z.tar.xz` (the source with
 vendored crates, from `make dist`) and `SHA256SUMS`.
 
+Pages accepts deploys from `main` and from `v*` tags only (the
+`github-pages` environment's rules, docs/notes.md).
+
 To publish the Flatpak repository without a release, for a fix that should
 reach installs before the next version, run the workflow by hand:
 `gh workflow run Release --ref main`.
