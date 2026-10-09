@@ -125,6 +125,13 @@ def short_tempdir(prefix):
     return Path(tempfile.mkdtemp(prefix=prefix, dir=base if len(base) < 40 else "/tmp"))
 
 
+def remove_runtime(runtime):
+    """A private session's document portal may still have its FUSE mount."""
+    subprocess.run(["fusermount3", "-u", "-q", str(Path(runtime) / "doc")],
+                   stderr=subprocess.DEVNULL)
+    shutil.rmtree(runtime, ignore_errors=True)
+
+
 def login(opts):
     """Calliope from the demo profile, on this desktop but on a D-Bus session
     of its own, so it runs beside your own Calliope."""
@@ -141,7 +148,7 @@ def login(opts):
         status = subprocess.run(["dbus-run-session", "--", "flatpak", "run", APP_ID],
                                 env=env).returncode
     finally:
-        shutil.rmtree(runtime, ignore_errors=True)
+        remove_runtime(runtime)
     return status
 
 
@@ -154,6 +161,10 @@ def record(opts):
         sys.exit(f"No demo profile in {profile}; run `scripts/demo.py login` first.")
     out = Path(opts.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    # Nothing from an earlier run may be cut together with this one.
+    for name in ("raw.mkv", "events.json", "demo.mp4", "main.png", "quick-ask.png",
+                 "preferences.png"):
+        (out / name).unlink(missing_ok=True)
     root = short_tempdir("calliope-demo-")
     home = root / "home"
     # Login and site data, but not the cache or the window size it left.
@@ -177,8 +188,7 @@ def record(opts):
             ["dbus-run-session", "--", sys.executable, __file__, "record",
              "--profile", str(profile), "--out", str(out)], env=env).returncode
     finally:
-        subprocess.run(["fusermount3", "-u", "-q", str(runtime / "doc")],
-                       stderr=subprocess.DEVNULL)
+        remove_runtime(runtime)
         shutil.rmtree(root, ignore_errors=True)
     if status == 0 and not opts.no_edit:
         status = edit(opts)
@@ -327,9 +337,12 @@ class Session:
     def stop_recording(self):
         Gst = self.Gst
         self.pipeline.send_event(Gst.Event.new_eos())
-        self.pipeline.get_bus().timed_pop_filtered(
+        message = self.pipeline.get_bus().timed_pop_filtered(
             30 * Gst.SECOND, Gst.MessageType.EOS | Gst.MessageType.ERROR)
         self.pipeline.set_state(Gst.State.NULL)
+        if not message or message.type != Gst.MessageType.EOS:
+            error = message.parse_error()[0].message if message else "timed out"
+            raise RuntimeError(f"the recording did not finish: {error}")
 
     def shot(self, caption=None, focus=None, speed=1.0, keys=None):
         """Starts a shot of the edited video here: its caption, the area to

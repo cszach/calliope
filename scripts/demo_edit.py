@@ -28,9 +28,9 @@ FADE = 0.4
 INSTALL = "flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref"
 
 
-def font(weight, size):
-    """Adwaita Sans, GNOME's interface font, or whatever fontconfig offers."""
-    path = subprocess.run(["fc-match", "-f", "%{file}", f"Adwaita Sans:weight={weight}"],
+def font(size, weight=400, family="Adwaita Sans"):
+    """GNOME's interface font by default, or whatever fontconfig offers."""
+    path = subprocess.run(["fc-match", "-f", "%{file}", f"{family}:weight={weight}"],
                           capture_output=True, text=True).stdout
     return ImageFont.truetype(path, size) if path else ImageFont.load_default(size)
 
@@ -67,15 +67,14 @@ def view_for(focus, frame):
 def plan(events, frame, duration):
     """One entry per output frame: (source time, view box, caption, its
     opacity, keys or None, their opacity)."""
-    shots = [e for e in events]
     frames = []
     previous_view = view_for(None, frame)
     previous_caption = None
-    for i, shot in enumerate(shots):
-        if shot["caption"] is None and i == len(shots) - 1:
+    for i, shot in enumerate(events):
+        if shot["caption"] is None and i == len(events) - 1:
             break
         start = shot["t"]
-        end = shots[i + 1]["t"] if i + 1 < len(shots) else duration
+        end = events[i + 1]["t"] if i + 1 < len(events) else duration
         if shot.get("skip"):
             continue
         speed = shot.get("speed") or 1.0
@@ -157,10 +156,8 @@ def icon(size):
 def end_card():
     card = Image.new("RGBA", SIZE, (250, 250, 250, 255))
     draw = ImageDraw.Draw(card)
-    title, body, small, mono = font(800, 96), font(400, 44), font(400, 30), None
-    mono_path = subprocess.run(["fc-match", "-f", "%{file}", "Adwaita Mono"],
-                               capture_output=True, text=True).stdout
-    mono = ImageFont.truetype(mono_path, 30) if mono_path else small
+    title, body, small = font(96, 800), font(44), font(30)
+    mono = font(30, family="Adwaita Mono")
     y = 250
     art = icon(256)
     if art:
@@ -191,7 +188,7 @@ def edit(out):
     if total > 60:
         print("warning: the video is longer than a minute")
 
-    caption_face, keys_face = font(700, 46), font(700, 40)
+    caption_face, keys_face = font(46, 700), font(40, 700)
     captions, caps = {}, {}
     decoder = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-i", str(raw), "-f", "rawvideo", "-pix_fmt", "rgb24",
@@ -211,6 +208,8 @@ def edit(out):
             if len(data) < frame_bytes:
                 break
             source, source_index = data, source_index + 1
+        if source is None:
+            raise RuntimeError(f"{raw} has no frames")
         image = Image.frombuffer("RGB", frame, source).resize(SIZE, Image.Resampling.BICUBIC,
                                                               box=view).convert("RGBA")
         if caption:
