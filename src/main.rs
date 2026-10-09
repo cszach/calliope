@@ -25,7 +25,9 @@ mod zoom;
 use config::Config;
 
 fn main() -> glib::ExitCode {
+    // Millisecond timestamps: scripts/bench.py times startup from the log.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("calliope=info"))
+        .format_timestamp_millis()
         .init();
 
     paths::migrate_from_old_name();
