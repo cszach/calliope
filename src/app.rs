@@ -13,7 +13,8 @@ use crate::consts::APP_ID;
 use crate::engine::Engine;
 use crate::notifications;
 use crate::{
-    downloads, hotkey, policy, preferences, quick_ask, search_provider, shortcuts, tab, window,
+    background, downloads, hotkey, policy, preferences, quick_ask, search_provider, shortcuts, tab,
+    window,
 };
 
 const REPO_URL: &str = "https://github.com/cszach/calliope";
@@ -261,10 +262,11 @@ impl App {
     }
 
     /// Turns background mode on or off, saves it, and updates the menu.
-    fn set_background_mode(&self, on: bool) {
+    fn set_background_mode(self: &Rc<Self>, on: bool) {
         if self.config().background_mode != on {
             self.config_mut().background_mode = on;
             self.save_config();
+            background::sync(self, self.gtk.active_window());
         }
         self.apply_background_mode();
     }
@@ -378,6 +380,7 @@ impl App {
             app.add_actions();
             app.apply_background_mode();
             shortcuts::install(&app.gtk, app.debug());
+            background::init(&app);
             hotkey::init(&app);
             search_provider::register(&app);
             // Started over D-Bus, possibly by GNOME Shell just to answer a
