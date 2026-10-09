@@ -142,7 +142,7 @@ dist:
 	rm -rf target/dist
 	mkdir -p target/dist/$(DIST)/.cargo
 	git archive HEAD | tar -x -C target/dist/$(DIST)
-	cd target/dist/$(DIST) && cargo vendor --locked --quiet vendor > .cargo/config.toml
+	cd target/dist/$(DIST) && cargo vendor --locked vendor > .cargo/config.toml
 	tar -C target/dist -cJf target/dist/$(DIST).tar.xz $(DIST)
 	rm -rf target/dist/$(DIST)
 	@echo "Wrote target/dist/$(DIST).tar.xz"
