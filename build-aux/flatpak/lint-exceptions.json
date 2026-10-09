@@ -1,3 +1,6 @@
 {
-  "io.github.cszach.Calliope": {}
+  "io.github.cszach.Calliope": {
+    "appstream-screenshots-not-mirrored-in-ostree": "Self-hosted repository: screenshots are served from GitHub, not mirrored by Flathub",
+    "appstream-external-screenshot-url": "Self-hosted repository: screenshots are served from GitHub, not mirrored by Flathub"
+  }
 }
