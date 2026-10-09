@@ -114,16 +114,16 @@ fn start(app: &Rc<App>, parent: Option<gtk::Window>, retries: u32) {
             return;
         };
         log::warn!("quick-ask shortcut unavailable: {e}");
-        if let Some(parent) = &parent {
-            let cancelled = matches!(
-                e,
-                ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)
-            );
-            if cancelled {
-                remember_bound(&app, false);
-            } else {
-                failed(&e.to_string(), Some(parent));
-            }
+        let cancelled = matches!(
+            e,
+            ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)
+        );
+        if cancelled {
+            // The user dismissed GNOME's dialog: ask again only from
+            // Preferences, never at the next startup.
+            remember_bound(&app, false);
+        } else if let Some(parent) = &parent {
+            failed(&e.to_string(), Some(parent));
         } else if retries > 0 {
             glib::timeout_add_local_once(RETRY_DELAY, move || {
                 if state() == State::Unbound {

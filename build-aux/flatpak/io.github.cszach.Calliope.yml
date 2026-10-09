@@ -39,7 +39,10 @@ modules:
       - type: dir
         path: ../..
         skip:
+          - .git
           - target
+          # Fetched by `make fetch-icon` for personal use; never shipped.
+          - data/icons/official
           - .flatpak-builder
           - flatpak-build
           - flatpak-repo

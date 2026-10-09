@@ -13,7 +13,7 @@ set -eu
 
 APP_ID=io.github.cszach.Calliope
 BRANCH=stable
-SITE=${SITE:-https://cszach.github.io/calliope}
+SITE=${SITE:-https://zachnguyen.com/calliope}
 RUNTIME_REPO=https://dl.flathub.org/repo/flathub.flatpakrepo
 HERE=$(dirname "$0")
 

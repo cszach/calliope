@@ -13,11 +13,11 @@ Work in progress. See the [issues](https://github.com/cszach/calliope/issues).
 ## Install
 
 Calliope is a Flatpak from its own signed repository: open
-[cszach.github.io/calliope](https://cszach.github.io/calliope/) and choose
+[zachnguyen.com/calliope](https://zachnguyen.com/calliope/) and choose
 **Install with GNOME Software**, or run
 
 ```sh
-flatpak install --user https://cszach.github.io/calliope/calliope.flatpakref
+flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref
 ```
 
 Updates arrive with your other Flatpak apps.

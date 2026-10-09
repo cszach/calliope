@@ -7,7 +7,6 @@
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use adw::prelude::*;
 use ashpd::desktop::background::Background;
 
 use crate::app::App;
@@ -17,14 +16,17 @@ const REASON: &str = "Calliope keeps running to show Muse’s notifications and 
 const AUTOSTART_TEMPLATE: &str =
     include_str!("../data/io.github.cszach.Calliope.autostart.desktop.in");
 
-/// At startup: adopts an autostart entry written by an older version, then
-/// renews the permission and entry if background mode is on.
+/// At startup. Outside the sandbox: adopts an autostart entry written by an
+/// older version, and leaves the entry alone otherwise, so a development
+/// build never repoints it at itself. Inside: renews the background
+/// permission and autostart if background mode is on.
 pub fn init(app: &Rc<App>) {
-    if !ashpd::is_sandboxed() && autostart_file().is_file() && !app.config().start_at_login {
-        app.config_mut().start_at_login = true;
-        app.save_config();
-    }
-    if app.config().background_mode {
+    if !ashpd::is_sandboxed() {
+        if autostart_file().is_file() && !app.config().start_at_login {
+            app.config_mut().start_at_login = true;
+            app.save_config();
+        }
+    } else if app.config().background_mode {
         sync(app, None);
     }
 }
@@ -76,8 +78,7 @@ pub fn sync(app: &Rc<App>, parent: Option<gtk::Window>) {
 /// The user said no: GNOME would stop Calliope once its windows close.
 fn refused(app: &App) {
     log::info!("running in the background was refused; turning background mode off");
-    app.gtk
-        .change_action_state("background-mode", &false.to_variant());
+    app.leave_background_mode();
 }
 
 fn autostart_file() -> PathBuf {

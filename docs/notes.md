@@ -214,6 +214,10 @@ its source and the date it was checked. When one changes, edit it in place.
   `share/dbus-1/services/*.service` from the app into its exports directory,
   which is on the session's `XDG_DATA_DIRS`. So the search provider needs no
   sudo, and the service's `Exec` is rewritten to `flatpak run`.
+- GitHub Pages for this repository (enabled 2026-10-09 with the Actions
+  source) is served at `https://zachnguyen.com/calliope/`: the account's
+  user site has a custom domain, and `cszach.github.io/calliope/` answers
+  301 to it. The repository URLs use the canonical address.
 
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 

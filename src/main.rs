@@ -1,4 +1,4 @@
-//! Muse: an unofficial GNOME desktop client for Meta's Muse (muse.ai).
+//! Calliope: an unofficial GNOME desktop client for Meta's Muse (muse.ai).
 
 mod app;
 mod background;

@@ -271,6 +271,16 @@ impl App {
         self.apply_background_mode();
     }
 
+    /// Turns background mode off without asking the portal again, after the
+    /// user refused it there.
+    pub fn leave_background_mode(&self) {
+        if self.config().background_mode {
+            self.config_mut().background_mode = false;
+            self.save_config();
+        }
+        self.apply_background_mode();
+    }
+
     fn apply_background_mode(&self) {
         let on = self.config().background_mode;
         let mut hold = self.background_hold.borrow_mut();
