@@ -214,6 +214,12 @@ its source and the date it was checked. When one changes, edit it in place.
   `share/dbus-1/services/*.service` from the app into its exports directory,
   which is on the session's `XDG_DATA_DIRS`. So the search provider needs no
   sudo, and the service's `Exec` is rewritten to `flatpak run`.
+- If every Flatpak launch fails with `bwrap: Can't find source path
+  /run/user/1000/doc/by-app/<app id>`, the document portal is running but
+  its FUSE mount at `/run/user/1000/doc` is gone; `systemctl --user restart
+  xdg-document-portal` mounts it again. Seen on Zach's machine 2026-10-09,
+  the morning /home had filled up; GNOME Software's Open did nothing until
+  the restart.
 - GitHub Pages for this repository (enabled 2026-10-09 with the Actions
   source) is served at `https://zachnguyen.com/calliope/`: the account's
   user site has a custom domain, and `cszach.github.io/calliope/` answers
