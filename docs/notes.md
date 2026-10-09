@@ -249,6 +249,16 @@ its source and the date it was checked. When one changes, edit it in place.
   per outstanding call, so the top bar extension can call into the app with only
   `--talk-name=org.kde.StatusNotifierWatcher`. Checked live: the sandboxed build
   registers and its properties read from outside.
+- Flatpak forces `DefaultDisabled=true` into every search provider `.ini` it exports
+  (`flatpak-dir.c`, `g_key_file_set_boolean (keyfile, "Shell Search Provider",
+  "DefaultDisabled", TRUE)`, main, read 2026-10-09). GNOME Shell then skips the provider,
+  without logging, until its desktop id is in `org.gnome.desktop.search-providers enabled`,
+  which the Search panel in Settings sets (`remoteSearch.js`, `loadRemoteSearchProviders`).
+  So a Flatpak app's overview search is off until the user switches it on there. Seen on
+  Zach's machine with Calliope, Authenticator, Eyedropper and Icon Library (2026-10-09).
+- Looking Glass (`lookingGlass.js`, GNOME Shell 50) splits the input on every `;` and
+  prefixes the last piece with `return`, so any semicolon inside a block yields `undefined`.
+  It predeclares `GLib`, `Gio`, `Shell`, `St`, `Main` and allows `await import(...)`.
 - GitHub Pages for this repository (enabled 2026-10-09 with the Actions
   source) is served at `https://zachnguyen.com/calliope/`: the account's
   user site has a custom domain, and `cszach.github.io/calliope/` answers

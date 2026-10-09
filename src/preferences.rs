@@ -150,13 +150,26 @@ fn general_page(
     quick_ask.add(&shortcut);
     page.add(&quick_ask);
 
+    let mut description = String::from(
+        "Type a question in the Activities overview to ask Muse. With a prefix such as “?”, \
+         only questions that start with it are offered.",
+    );
+    // Flatpak exports every search provider switched off.
+    if ashpd::is_sandboxed() {
+        description.push_str(" First switch Calliope on in Settings, under Search.");
+    }
     let search = adw::PreferencesGroup::builder()
         .title("Search")
-        .description(
-            "Type a question in the Activities overview to ask Muse. With a prefix such as \
-             “?”, only questions that start with it are offered.",
-        )
+        .description(description)
         .build();
+    let settings = adw::ButtonRow::builder()
+        .title("_Open Search Settings")
+        .use_underline(true)
+        .end_icon_name("adw-external-link-symbolic")
+        .build();
+    let a = Rc::clone(app);
+    settings.connect_activated(move |row| open_search_settings(&a, row));
+    search.add(&settings);
     let min_chars = adw::SpinRow::with_range(1.0, 20.0, 1.0);
     min_chars.set_title("_Minimum Length");
     min_chars.set_use_underline(true);
@@ -216,6 +229,56 @@ fn general_page(
     (page, watch)
 }
 
+/// Opens the Search panel of GNOME Settings through its `launch-panel`
+/// action, with an activation token so Wayland lets it come to the front.
+fn open_search_settings(app: &App, row: &adw::ButtonRow) {
+    let Some(connection) = app.gtk.dbus_connection() else {
+        return;
+    };
+    let token = row
+        .display()
+        .app_launch_context()
+        .startup_notify_id(None::<&gio::AppInfo>, &[]);
+    // Weak: Preferences may be closed before Settings answers.
+    let parent = row
+        .root()
+        .and_downcast::<gtk::Window>()
+        .map(|w| w.downgrade());
+    connection.call(
+        Some("org.gnome.Settings"),
+        "/org/gnome/Settings",
+        "org.freedesktop.Application",
+        "ActivateAction",
+        Some(&launch_panel_args("search", token.as_deref())),
+        None,
+        gio::DBusCallFlags::NONE,
+        -1,
+        gio::Cancellable::NONE,
+        move |result| {
+            if let Err(e) = result {
+                log::warn!("cannot open Settings: {e}");
+                let dialog = adw::AlertDialog::new(
+                    Some("Can’t Open Settings"),
+                    Some("Open Settings yourself and switch Calliope on under Search."),
+                );
+                dialog.add_response("ok", "_OK");
+                dialog.present(parent.and_then(|w| w.upgrade()).as_ref());
+            }
+        },
+    );
+}
+
+/// `ActivateAction`'s arguments, `(sava{sv})`, for the `launch-panel` action,
+/// whose parameter is `(sav)`: the panel and its arguments.
+fn launch_panel_args(panel: &str, token: Option<&str>) -> glib::Variant {
+    let mut platform_data = std::collections::HashMap::new();
+    if let Some(token) = token {
+        platform_data.insert("activation-token".to_owned(), token.to_variant());
+    }
+    let parameter = (panel, Vec::<glib::Variant>::new()).to_variant();
+    ("launch-panel", vec![parameter], platform_data).to_variant()
+}
+
 fn privacy_page() -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
         .title("Privacy")
@@ -234,4 +297,25 @@ fn privacy_page() -> adw::PreferencesPage {
     data.add(&clear);
     page.add(&data);
     page
+}
+
+#[cfg(test)]
+mod tests {
+    use super::launch_panel_args;
+
+    #[test]
+    fn launch_panel_args_match_settings_signature() {
+        let args = launch_panel_args("search", Some("token"));
+        assert_eq!(args.type_().as_str(), "(sava{sv})");
+        let parameter = args.child_value(1).child_value(0).as_variant().unwrap();
+        assert_eq!(parameter.type_().as_str(), "(sav)");
+        assert_eq!(parameter.child_value(0).str(), Some("search"));
+        assert_eq!(args.child_value(2).n_children(), 1);
+        assert_eq!(
+            launch_panel_args("search", None)
+                .child_value(2)
+                .n_children(),
+            0
+        );
+    }
 }
