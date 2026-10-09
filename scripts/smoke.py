@@ -11,7 +11,8 @@ screen, and quits.
 Cases are DISPLAY@SCALE[+safe]: DISPLAY is "wayland" (a headless GNOME Shell
 whose virtual monitor is set to SCALE through gdctl) or "x11" (Xvfb, with
 GDK_SCALE=SCALE; GTK scales X11 by whole numbers only); "+safe" adds
---safe-graphics. Wayland needs gnome-shell, X11 needs Xvfb and ImageMagick.
+--safe-graphics. Wayland needs gnome-shell and a system bus (GNOME Shell
+will not start without one), X11 needs Xvfb and ImageMagick.
 
 Usage: scripts/smoke.py [--binary PATH | --flatpak BUNDLE]
                         [--cases wayland@1,wayland@1.25,...] [--out DIR]
@@ -263,8 +264,9 @@ def main():
                                  *sys.argv[1:]], env=env).returncode
     finally:
         # The private session's document portal may still have its FUSE mount.
-        subprocess.run(["fusermount3", "-u", "-q", f"{env['XDG_RUNTIME_DIR']}/doc"],
-                       stderr=subprocess.DEVNULL)
+        if shutil.which("fusermount3"):
+            subprocess.run(["fusermount3", "-u", "-q", f"{env['XDG_RUNTIME_DIR']}/doc"],
+                           stderr=subprocess.DEVNULL)
         shutil.rmtree(root, ignore_errors=True)
         shutil.rmtree(env["XDG_RUNTIME_DIR"], ignore_errors=True)
     sys.exit(status)

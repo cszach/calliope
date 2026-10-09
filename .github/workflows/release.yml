@@ -156,11 +156,17 @@ jobs:
       - name: Install Flatpak and a headless desktop
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          flatpak gnome-shell xorg-x11-server-Xvfb ImageMagick python3-gobject dbus-daemon
+          flatpak gnome-shell xorg-x11-server-Xvfb ImageMagick python3-gobject python3-dbusmock dbus-daemon
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: calliope-flatpak
+      # GNOME Shell needs a system bus and logind, which containers lack.
+      - name: Start a system bus with a stand-in logind
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          python3 -m dbusmock --system --template logind > dbusmock.log 2>&1 &
       - name: Run the Flatpak in headless desktops
         shell: bash
         run: scripts/smoke.py --flatpak calliope.flatpak --out smoke | tee -a "$GITHUB_STEP_SUMMARY"

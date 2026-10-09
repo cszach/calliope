@@ -45,7 +45,7 @@ jobs:
         run: >
           apt-get update && apt-get install -y --no-install-recommends
           git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
-          ca-certificates gnome-shell xvfb imagemagick python3-gi dbus-daemon
+          ca-certificates gnome-shell xvfb imagemagick python3-gi python3-dbusmock dbus-daemon
       - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
@@ -55,6 +55,12 @@ jobs:
             target
           key: ubuntu-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: ubuntu-cargo-
+      # GNOME Shell needs a system bus and logind, which containers lack.
+      - name: Start a system bus with a stand-in logind
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          python3 -m dbusmock --system --template logind > dbusmock.log 2>&1 &
       - run: make build
       - name: Run it in headless desktops
         shell: bash
