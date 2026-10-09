@@ -150,17 +150,20 @@ fn general_page(
     quick_ask.add(&shortcut);
     page.add(&quick_ask);
 
+    let mut description = String::from(
+        "Type a question in the Activities overview to ask Muse. With a prefix such as “?”, \
+         only questions that start with it are offered.",
+    );
+    // Flatpak exports every search provider switched off.
+    if ashpd::is_sandboxed() {
+        description.push_str(" First switch Calliope on in Settings, under Search.");
+    }
     let search = adw::PreferencesGroup::builder()
         .title("Search")
-        .description(
-            "Type a question in the Activities overview to ask Muse. With a prefix such as \
-             “?”, only questions that start with it are offered. Calliope must also be \
-             switched on in Settings, under Search; apps installed with Flatpak start \
-             switched off there.",
-        )
+        .description(description)
         .build();
     let settings = adw::ButtonRow::builder()
-        .title("Open Search _Settings")
+        .title("_Open Search Settings")
         .use_underline(true)
         .end_icon_name("adw-external-link-symbolic")
         .build();
@@ -236,7 +239,11 @@ fn open_search_settings(app: &App, row: &adw::ButtonRow) {
         .display()
         .app_launch_context()
         .startup_notify_id(None::<&gio::AppInfo>, &[]);
-    let parent = row.root().and_downcast::<gtk::Window>();
+    // Weak: Preferences may be closed before Settings answers.
+    let parent = row
+        .root()
+        .and_downcast::<gtk::Window>()
+        .map(|w| w.downgrade());
     connection.call(
         Some("org.gnome.Settings"),
         "/org/gnome/Settings",
@@ -255,7 +262,7 @@ fn open_search_settings(app: &App, row: &adw::ButtonRow) {
                     Some("Open Settings yourself and switch Calliope on under Search."),
                 );
                 dialog.add_response("ok", "_OK");
-                dialog.present(parent.as_ref());
+                dialog.present(parent.and_then(|w| w.upgrade()).as_ref());
             }
         },
     );
