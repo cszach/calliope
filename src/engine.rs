@@ -34,6 +34,13 @@ const USER_SCRIPTS: &[(&str, webkit::UserContentInjectedFrames, &[&str])] = &[
         webkit::UserContentInjectedFrames::AllFrames,
         &[],
     ),
+    // WebKitGTK 2.54 corrupts media played from blob: URLs, which Muse
+    // uses for generated videos.
+    (
+        include_str!("../data/js/blob-media.js"),
+        webkit::UserContentInjectedFrames::AllFrames,
+        &[],
+    ),
     (
         include_str!("../data/js/fill-prompt.js"),
         webkit::UserContentInjectedFrames::TopFrame,
