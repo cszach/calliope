@@ -10,6 +10,9 @@ APP_ID := io.github.cszach.Calliope
 OLD_ID := io.github.cszach.Muse
 OLD_BIN := muse
 
+VERSION := $(shell build-aux/version.sh)
+DIST := calliope-$(VERSION)
+
 # Data files with the install path filled in.
 GENDIR := target/data
 GENERATED := $(GENDIR)/$(APP_ID).desktop $(GENDIR)/$(APP_ID).service \
@@ -24,7 +27,7 @@ OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
 .PHONY: all build run check fmt clippy test validate bench install uninstall \
 	install-shortcut uninstall-shortcut \
 	install-search-provider uninstall-search-provider \
-	fetch-icon FORCE
+	fetch-icon dist FORCE
 
 all: build
 
@@ -132,5 +135,16 @@ uninstall-shortcut:
 
 fetch-icon:
 	scripts/fetch-icon.sh $(OFFICIAL_SIZES)
+
+# A source tarball of the committed tree (HEAD) with every crate vendored, so
+# `make build` works in it offline.
+dist:
+	rm -rf target/dist
+	mkdir -p target/dist/$(DIST)/.cargo
+	git archive HEAD | tar -x -C target/dist/$(DIST)
+	cd target/dist/$(DIST) && cargo vendor --locked --quiet vendor > .cargo/config.toml
+	tar -C target/dist -cJf target/dist/$(DIST).tar.xz $(DIST)
+	rm -rf target/dist/$(DIST)
+	@echo "Wrote target/dist/$(DIST).tar.xz"
 
 FORCE:
