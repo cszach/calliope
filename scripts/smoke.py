@@ -17,8 +17,8 @@ will not start without one), X11 needs Xvfb and ImageMagick.
 Usage: scripts/smoke.py [--binary PATH | --flatpak BUNDLE]
                         [--cases wayland@1,wayland@1.25,...] [--out DIR]
 
-Prints a Markdown table and writes the screenshots and logs to DIR (default
-target/smoke). Exits 1 when a case fails.
+Prints a Markdown table and writes each case's screenshot and logs to DIR
+(default target/smoke), named after the case. Exits 1 when a case fails.
 """
 
 import argparse
@@ -41,8 +41,8 @@ DEFAULT_CASES = "wayland@1,wayland@1.25,wayland@2,x11@1,x11@2,wayland@1+safe"
 # Big enough that the default 1100x800 window fits at scale 2.
 MONITOR = (2560, 1600)
 WAYLAND_DISPLAY = "smoke-wayland"
-X11_DISPLAY = ":77"
-LOADED = re.compile(r"INFO\s+calliope::tab\] Finished (https://\S+)")
+# The login redirects pass through facebook.com; wait for the return.
+LOADED = re.compile(r"INFO\s+calliope::tab\] Finished https://muse\.ai/")
 EVAL = re.compile(r"debug-eval: (\{.*\})")
 TROUBLE = re.compile(r"panicked|web process (crashed|terminated)|CRITICAL", re.I)
 PROBE = (
@@ -90,6 +90,7 @@ def start_wayland(log):
                          "--object-path", "/org/gnome/Mutter/DisplayConfig",
                          "--method", "org.gnome.Mutter.DisplayConfig.GetCurrentState"
                          ).returncode == 0, 20):
+        proc.kill()
         raise RuntimeError("gnome-shell did not start")
     return proc
 
@@ -111,8 +112,8 @@ def shell_screenshot(path):
     return reply.unpack()[0]
 
 
-def x11_screenshot(path):
-    return subprocess.run(["import", "-display", X11_DISPLAY, "-window", "root", str(path)],
+def x11_screenshot(display, path):
+    return subprocess.run(["import", "-display", display, "-window", "root", str(path)],
                           capture_output=True).returncode == 0
 
 
@@ -125,13 +126,19 @@ def set_scale(scale):
 
 
 def start_x11(log):
+    """Starts Xvfb on a free display; returns it and the display name."""
+    read_end, write_end = os.pipe()
     proc = subprocess.Popen(
-        ["Xvfb", X11_DISPLAY, "-screen", "0", f"{MONITOR[0]}x{MONITOR[1]}x24", "-nolisten", "tcp"],
-        stdout=log, stderr=subprocess.STDOUT)
-    socket = Path("/tmp/.X11-unix") / f"X{X11_DISPLAY[1:]}"
-    if not wait_for(socket.exists, 20):
+        ["Xvfb", "-displayfd", str(write_end), "-screen", "0",
+         f"{MONITOR[0]}x{MONITOR[1]}x24", "-nolisten", "tcp"],
+        stdout=log, stderr=subprocess.STDOUT, pass_fds=(write_end,))
+    os.close(write_end)
+    with os.fdopen(read_end) as ready:
+        number = ready.readline().strip()  # written once Xvfb accepts clients
+    if not number:
+        proc.kill()
         raise RuntimeError("Xvfb did not start")
-    return proc
+    return proc, f":{number}"
 
 
 def forget_calliope(home):
@@ -149,26 +156,7 @@ def run_case(case, launcher, out, flatpak):
     result = {"case": case, "ok": False, "page": "", "dpr": "", "webgl2": "", "note": ""}
     env = dict(os.environ)
     args = ["--debug"] + (["--safe-graphics"] if extra == "safe" else [])
-    server_log = open(out / f"{case}.server.log", "w")
-    if display == "wayland":
-        server = start_wayland(server_log)
-        set_scale(scale)
-        env["WAYLAND_DISPLAY"] = WAYLAND_DISPLAY
-    else:
-        server = start_x11(server_log)
-        env["DISPLAY"] = X11_DISPLAY
-        env["GDK_SCALE"] = scale
-    if flatpak:
-        command = ["flatpak", "run", "--user"]
-        if display == "x11":
-            command.append(f"--env=GDK_SCALE={scale}")
-        command += [APP_ID] + args
-    else:
-        command = [str(launcher)] + args
     log_path = out / f"{case}.log"
-    log = open(log_path, "w")
-    proc = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
-                            start_new_session=True)
     read = lambda: log_path.read_text(errors="replace")
     window = f"{OBJECT}/window/1"
 
@@ -177,47 +165,74 @@ def run_case(case, launcher, out, flatpak):
                     "--method", "org.gtk.Actions.Activate", name,
                     "[" + ", ".join(params) + "]", "{}")
 
-    try:
-        loaded = wait_for(lambda: LOADED.search(read()), 90)
-        if not loaded:
-            result["note"] = "start page did not finish loading in 90 s"
-            return result
-        time.sleep(5)  # the login redirects settle, and the page draws
-        sent = action("debug-eval", f"<'{PROBE}'>")
-        if sent.returncode != 0:
-            result["note"] = sent.stderr.strip()
-        probe = wait_for(lambda: EVAL.search(read()), 10)
-        if probe:
-            values = json.loads(probe.group(1))
-            result["page"] = values["host"]
-            result["dpr"] = values["dpr"]
-            result["webgl2"] = "yes" if values["webgl2"] else "no"
-        shot = (shell_screenshot if display == "wayland" else x11_screenshot)(
-            out / f"{case}.png")
-        alive = proc.poll() is None
-        # WebKitGTK draws a fractional scale at the next whole one, which
-        # the compositor scales down (docs/notes.md).
-        expected = math.ceil(float(scale))
-        trouble = TROUBLE.search(read())
-        result["ok"] = (alive and probe is not None and shot
-                        and float(result["dpr"]) == expected and not trouble)
-        if not result["ok"]:
-            result["note"] = (trouble.group(0) if trouble else
-                              "exited early" if not alive else
-                              f"expected dpr {expected}" if probe else
-                              result["note"] or "no probe answer")
-        return result
-    finally:
-        call("--dest", APP_ID, "--object-path", OBJECT,
-             "--method", "org.freedesktop.Application.ActivateAction", "quit", "[]", "{}")
+    server = proc = None
+    with open(out / f"{case}.server.log", "w") as server_log, open(log_path, "w") as log:
         try:
-            proc.wait(15)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            result["note"] = (result["note"] + "; did not quit").lstrip("; ")
+            if display == "wayland":
+                server = start_wayland(server_log)
+                set_scale(scale)
+                env["WAYLAND_DISPLAY"] = WAYLAND_DISPLAY
+                screenshot = shell_screenshot
+            else:
+                server, x_display = start_x11(server_log)
+                env["DISPLAY"] = x_display
+                env["GDK_SCALE"] = scale
+                screenshot = lambda path: x11_screenshot(x_display, path)
+            if flatpak:
+                command = ["flatpak", "run", "--user"]
+                if display == "x11":
+                    command.append(f"--env=GDK_SCALE={scale}")
+                command += [APP_ID] + args
+            else:
+                command = [str(launcher)] + args
+            proc = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                    start_new_session=True)
+
+            if not wait_for(lambda: LOADED.search(read()), 90):
+                result["note"] = "muse.ai did not finish loading in 90 s"
+                return result
+            time.sleep(5)  # the page draws and settles
+            sent = action("debug-eval", f"<'{PROBE}'>")
+            if sent.returncode != 0:
+                result["note"] = sent.stderr.strip()
+            probe = wait_for(lambda: EVAL.search(read()), 10)
+            if probe:
+                values = json.loads(probe.group(1))
+                result["page"] = values["host"]
+                result["dpr"] = values["dpr"]
+                result["webgl2"] = "yes" if values["webgl2"] else "no"
+            shot = screenshot(out / f"{case}.png")
+            alive = proc.poll() is None
+            # WebKitGTK draws a fractional scale at the next whole one, which
+            # the compositor scales down (docs/notes.md).
+            expected = math.ceil(float(scale))
+            trouble = TROUBLE.search(read())
+            result["ok"] = bool(alive and probe and shot
+                                and float(result["dpr"]) == expected and not trouble)
+            if not result["ok"]:
+                result["note"] = (trouble.group(0) if trouble else
+                                  "exited early" if not alive else
+                                  "no screenshot" if not shot else
+                                  f"expected dpr {expected}" if probe else
+                                  result["note"] or "no probe answer")
+            return result
+        except Exception as e:  # one broken case must not hide the others
             result["ok"] = False
-        server.terminate()
-        server.wait(10)
+            result["note"] = f"{type(e).__name__}: {e}"
+            return result
+        finally:
+            if proc:
+                call("--dest", APP_ID, "--object-path", OBJECT,
+                     "--method", "org.freedesktop.Application.ActivateAction", "quit", "[]", "{}")
+                try:
+                    proc.wait(15)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    result["note"] = (result["note"] + "; did not quit").lstrip("; ")
+                    result["ok"] = False
+            if server:
+                server.terminate()
+                server.wait(10)
 
 
 def inner(opts):
@@ -251,11 +266,13 @@ def main():
     parser.add_argument("--cases", default=DEFAULT_CASES)
     parser.add_argument("--out", default=str(REPO / "target/smoke"))
     opts = parser.parse_args()
+    for case in opts.cases.split(","):
+        if not re.fullmatch(r"(wayland|x11)@\d+(\.\d+)?(\+safe)?", case):
+            parser.error(f"case {case!r} is not DISPLAY@SCALE[+safe]")
     if os.environ.get("CALLIOPE_SMOKE_INNER"):
         sys.exit(inner(opts))
-    out = Path(opts.out)
-    shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True)
+    # Results of the same case are overwritten; nothing else is removed.
+    Path(opts.out).mkdir(parents=True, exist_ok=True)
     root = Path(tempfile.mkdtemp(prefix="calliope-smoke-home-"))
     env = isolated_env(root)
     env["CALLIOPE_SMOKE_INNER"] = "1"
