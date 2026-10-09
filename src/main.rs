@@ -34,7 +34,7 @@ fn main() -> glib::ExitCode {
 
     paths::migrate_from_old_name();
     let config_path = paths::config_file();
-    let (config, config_writable) = Config::load(&config_path);
+    let config = Config::load(&config_path);
 
     // WebKit, GStreamer and GTK read these once, when they start.
     // Read here rather than through GApplication: it must act before GTK
@@ -53,5 +53,5 @@ fn main() -> glib::ExitCode {
         }
     }
 
-    app::App::new(config, config_path, config_writable).run()
+    app::App::new(config, config_path).run()
 }

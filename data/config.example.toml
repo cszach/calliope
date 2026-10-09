@@ -1,5 +1,7 @@
 # Calliope configuration. Copy to ~/.config/calliope/config.toml
 # Every key is optional; missing keys use the defaults shown here.
+# Edits made while Calliope runs are kept when it saves its settings, and
+# apply at its next start. Its saves drop comments.
 
 # Page loaded in new tabs and the quick-ask window.
 start_url = "https://muse.ai/"

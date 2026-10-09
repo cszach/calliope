@@ -44,8 +44,9 @@ pub struct App {
     pub gtk: adw::Application,
     config: RefCell<Config>,
     config_path: PathBuf,
-    /// False when an existing config file could not be parsed.
-    config_writable: bool,
+    /// The config as Calliope last read or wrote the file; saving writes
+    /// only what changed since, so edits made to the file meanwhile stay.
+    config_saved: RefCell<Config>,
     engine: OnceCell<Engine>,
     debug_flag: Cell<bool>,
     windows: RefCell<Vec<WindowRef>>,
@@ -60,7 +61,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: Config, config_path: PathBuf, config_writable: bool) -> Rc<Self> {
+    pub fn new(config: Config, config_path: PathBuf) -> Rc<Self> {
         let gtk = adw::Application::builder()
             .application_id(APP_ID)
             .flags(gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::CAN_OVERRIDE_APP_ID)
@@ -117,9 +118,9 @@ impl App {
         );
         let app = Rc::new(Self {
             gtk,
+            config_saved: RefCell::new(config.clone()),
             config: RefCell::new(config),
             config_path,
-            config_writable,
             engine: OnceCell::new(),
             debug_flag: Cell::new(false),
             windows: RefCell::new(Vec::new()),
@@ -146,15 +147,14 @@ impl App {
     }
 
     pub fn save_config(&self) {
-        if !self.config_writable {
-            log::warn!(
-                "not saving settings: fix {} and restart",
+        let config = self.config.borrow();
+        let saved = config.save(&self.config_path, &self.config_saved.borrow());
+        match saved {
+            Ok(()) => *self.config_saved.borrow_mut() = config.clone(),
+            Err(e) => log::warn!(
+                "not saving settings to {} until it is fixed: {e}",
                 self.config_path.display()
-            );
-            return;
-        }
-        if let Err(e) = self.config.borrow().save(&self.config_path) {
-            log::warn!("cannot save config {}: {e}", self.config_path.display());
+            ),
         }
     }
 

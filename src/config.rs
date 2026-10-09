@@ -3,7 +3,7 @@
 //! Every key has a default, so a missing or partial file is fine. The file is
 //! also where the app remembers window size and permission answers.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::Path;
 
@@ -160,8 +160,9 @@ impl OriginPermissions {
     }
 }
 
-const SAVED_HEADER: &str = "# Calliope settings that differ from the defaults. Calliope rewrites this file;\n\
-     # see config.example.toml in the repository for every key.\n\n";
+const SAVED_HEADER: &str = "# Calliope settings that differ from the defaults. Calliope rewrites this file\n\
+     # when a setting changes, keeping your edits but not comments. See\n\
+     # config.example.toml in the repository for every key.\n\n";
 
 /// Removes from `value` every key whose value equals the one in `defaults`,
 /// recursing into tables and dropping tables left empty.
@@ -179,38 +180,80 @@ fn prune_defaults(value: &mut toml::Value, defaults: &toml::Value) {
     });
 }
 
+/// Applies to `target` the changes from `base` to `ours`: a key whose value
+/// differs gets `ours`'s value, a key `ours` dropped is removed, and tables
+/// are compared key by key. Every other key keeps `target`'s value.
+fn apply_changes(target: &mut toml::Table, base: &toml::Table, ours: &toml::Table) {
+    let keys: BTreeSet<&String> = base.keys().chain(ours.keys()).collect();
+    for key in keys {
+        match (base.get(key), ours.get(key)) {
+            (b, o) if b == o => {}
+            (Some(toml::Value::Table(b)), Some(toml::Value::Table(o))) => {
+                match target
+                    .entry(key.as_str())
+                    .or_insert_with(|| toml::Value::Table(toml::Table::new()))
+                {
+                    toml::Value::Table(t) => apply_changes(t, b, o),
+                    other => *other = toml::Value::Table(o.clone()),
+                }
+            }
+            (_, Some(o)) => {
+                target.insert(key.clone(), o.clone());
+            }
+            (_, None) => {
+                target.remove(key.as_str());
+            }
+        }
+    }
+}
+
+fn to_table(config: &Config) -> io::Result<toml::Table> {
+    match toml::Value::try_from(config).map_err(io::Error::other)? {
+        toml::Value::Table(table) => Ok(table),
+        _ => Err(io::Error::other("config is not a table")),
+    }
+}
+
 impl Config {
     /// Reads the config, falling back to defaults when the file is missing or
-    /// broken. The flag says whether saving may overwrite the file: it is
-    /// false when a file exists but could not be used, so a typo in a
-    /// hand-edited config is never replaced by defaults.
-    pub fn load(path: &Path) -> (Self, bool) {
+    /// broken.
+    pub fn load(path: &Path) -> Self {
         match std::fs::read_to_string(path) {
-            Ok(text) => match toml::from_str(&text) {
-                Ok(config) => (config, true),
-                Err(e) => {
-                    log::warn!(
-                        "ignoring invalid config {} and leaving it untouched: {e}",
-                        path.display()
-                    );
-                    (Self::default(), false)
-                }
-            },
-            Err(e) if e.kind() == io::ErrorKind::NotFound => (Self::default(), true),
+            Ok(text) => toml::from_str(&text).unwrap_or_else(|e| {
+                log::warn!("ignoring invalid config {}: {e}", path.display());
+                Self::default()
+            }),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Self::default(),
             Err(e) => {
                 log::warn!("cannot read config {}: {e}", path.display());
-                (Self::default(), false)
+                Self::default()
             }
         }
     }
 
-    /// Writes the values that differ from the defaults, atomically: a crash
-    /// mid-write leaves the old file. Leaving defaults out lets a changed
-    /// default reach existing installs.
-    pub fn save(&self, path: &Path) -> io::Result<()> {
-        let mut value = toml::Value::try_from(self).map_err(io::Error::other)?;
-        let defaults = toml::Value::try_from(Self::default()).map_err(io::Error::other)?;
-        prune_defaults(&mut value, &defaults);
+    /// Writes the settings Calliope changed since `saved`, the config as it
+    /// last read or wrote the file, into the file as it is now: keys edited
+    /// by hand meanwhile, and keys Calliope does not know, stay. A file that
+    /// cannot be read, or would not load, is left untouched and is an error.
+    ///
+    /// Values equal to the defaults are left out, so a changed default
+    /// reaches existing installs. The write is atomic: a crash mid-write
+    /// leaves the old file.
+    pub fn save(&self, path: &Path, saved: &Self) -> io::Result<()> {
+        let mut file = match std::fs::read_to_string(path) {
+            Ok(text) => {
+                toml::from_str(&text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+            Err(e) => return Err(e),
+        };
+        apply_changes(&mut file, &to_table(saved)?, &to_table(self)?);
+        let mut value = toml::Value::Table(file);
+        value
+            .clone()
+            .try_into::<Self>()
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        prune_defaults(&mut value, &toml::Value::Table(to_table(&Self::default())?));
         let body = toml::to_string_pretty(&value).map_err(io::Error::other)?;
         let text = format!("{SAVED_HEADER}{body}");
         if let Some(dir) = path.parent() {
@@ -264,15 +307,14 @@ mod tests {
     #[test]
     fn missing_file_gives_defaults() {
         let path = temp_path("missing").with_file_name("nope.toml");
-        assert_eq!(Config::load(&path), (Config::default(), true));
+        assert_eq!(Config::load(&path), Config::default());
     }
 
     #[test]
     fn invalid_file_gives_defaults() {
         let path = temp_path("invalid");
         std::fs::write(&path, "this is = = not toml").unwrap();
-        // Defaults, and the broken file must not be overwritten.
-        assert_eq!(Config::load(&path), (Config::default(), false));
+        assert_eq!(Config::load(&path), Config::default());
     }
 
     #[test]
@@ -283,7 +325,7 @@ mod tests {
     #[test]
     fn saving_defaults_writes_no_settings() {
         let path = temp_path("defaults");
-        Config::default().save(&path).unwrap();
+        Config::default().save(&path, &Config::default()).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         let settings: Vec<&str> = text
             .lines()
@@ -299,7 +341,7 @@ mod tests {
         cfg.window.width = 640;
         cfg.quick_ask.submit = false;
         cfg.remember_permission("https://muse.ai", Capability::Microphone, true);
-        cfg.save(&path).unwrap();
+        cfg.save(&path, &Config::default()).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         for wanted in ["width = 640", "submit = false", "microphone = true"] {
             assert!(text.contains(wanted), "missing {wanted:?} in:\n{text}");
@@ -310,7 +352,7 @@ mod tests {
                 "unexpected {unwanted:?} in:\n{text}"
             );
         }
-        assert_eq!(Config::load(&path), (cfg, true));
+        assert_eq!(Config::load(&path), cfg);
     }
 
     #[test]
@@ -322,9 +364,83 @@ mod tests {
         };
         cfg.remember_permission("https://muse.ai", Capability::Microphone, true);
         cfg.remember_permission("https://muse.ai", Capability::Notifications, false);
-        cfg.save(&path).unwrap();
-        assert_eq!(Config::load(&path), (cfg, true));
+        cfg.save(&path, &Config::default()).unwrap();
+        assert_eq!(Config::load(&path), cfg);
         assert!(!path.with_extension("toml.tmp").exists());
+    }
+
+    #[test]
+    fn saving_keeps_keys_edited_since_loading() {
+        let path = temp_path("edited");
+        let saved = Config::default();
+        std::fs::write(
+            &path,
+            "start_url = \"https://muse.ai/edited\"\nfuture_key = 1\n\
+             [webkit.env]\nGST_DEBUG = \"2\"\n",
+        )
+        .unwrap();
+        let mut cfg = saved.clone();
+        cfg.window.width = 640;
+        cfg.save(&path, &saved).unwrap();
+        let loaded = Config::load(&path);
+        assert_eq!(loaded.window.width, 640);
+        assert_eq!(loaded.start_url, "https://muse.ai/edited");
+        assert_eq!(loaded.webkit.env["GST_DEBUG"], "2");
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("future_key = 1"), "unknown key lost:\n{text}");
+    }
+
+    #[test]
+    fn saving_overrides_a_key_calliope_changed() {
+        let path = temp_path("override");
+        let saved = Config::default();
+        std::fs::write(&path, "zoom_level = 1.5\n").unwrap();
+        let cfg = Config {
+            zoom_level: 2.0,
+            ..saved.clone()
+        };
+        cfg.save(&path, &saved).unwrap();
+        assert_eq!(Config::load(&path).zoom_level, 2.0);
+    }
+
+    #[test]
+    fn saving_removes_only_what_calliope_removed() {
+        let path = temp_path("removed");
+        let mut saved = Config::default();
+        saved.remember_permission("https://muse.ai", Capability::Microphone, true);
+        saved.save(&path, &Config::default()).unwrap();
+        let mut text = std::fs::read_to_string(&path).unwrap();
+        text.push_str("\n[permissions.\"https://meta.ai\"]\ncamera = false\n");
+        std::fs::write(&path, text).unwrap();
+        let mut cfg = saved.clone();
+        cfg.permissions.clear();
+        cfg.save(&path, &saved).unwrap();
+        let loaded = Config::load(&path);
+        assert_eq!(
+            loaded.permission("https://muse.ai", Capability::Microphone),
+            None
+        );
+        assert_eq!(
+            loaded.permission("https://meta.ai", Capability::Camera),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn saving_leaves_a_broken_file_untouched() {
+        for (name, broken) in [
+            ("syntax", "this is = = not toml"),
+            ("type", "zoom_level = \"big\"\n"),
+        ] {
+            let path = temp_path(name);
+            std::fs::write(&path, broken).unwrap();
+            let cfg = Config {
+                background_mode: true,
+                ..Config::default()
+            };
+            assert!(cfg.save(&path, &Config::default()).is_err());
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), broken);
+        }
     }
 
     #[test]
