@@ -270,6 +270,33 @@ its source and the date it was checked. When one changes, edit it in place.
   repos/cszach/calliope/environments/github-pages/deployment-branch-policies
   -f name='v*' -f type=tag`), so release tags deploy.
 
+## Other distributions and headless testing (checked 2026-10-09)
+
+- Library versions (`apt-cache policy` in the official containers): Ubuntu
+  26.04 has GTK 4.22.4, libadwaita 1.9.1, WebKitGTK 2.52.6 and rustc 1.93.1,
+  enough for the crate's `v4_20`/`v1_8`/`v2_52` features, and builds Calliope
+  from a fresh clone. Ubuntu 24.04 (GTK 4.14, libadwaita 1.5) and Debian 13
+  (GTK 4.18, libadwaita 1.7, though WebKitGTK 2.54.0) are too old.
+- At a fractional monitor scale WebKitGTK draws at the next whole scale and
+  the compositor scales it down: at 1.25 the page reports
+  `devicePixelRatio` 2 and text is sharp (WebKitGTK 2.54.1, GTK 4.22.5,
+  headless GNOME Shell 50.5, `scripts/smoke.py`).
+- Mutter 50 warns "Unknown experimental feature 'scale-monitor-framebuffer'":
+  fractional scaling no longer needs it. On `--headless --virtual-monitor`,
+  `gdctl set --logical-monitor --primary --monitor Meta-0 --scale 1.25`
+  sets the scale. Fedora ships `gdctl` in `mutter`, Ubuntu in
+  `mutter-common-bin`.
+- GNOME Shell 50's `org.gnome.Shell.Screenshot` answers only callers that own
+  `org.gnome.SettingsDaemon.MediaKeys` or
+  `org.freedesktop.impl.portal.desktop.gnome` (`DBusSenderChecker` in
+  `ui/screenshot.js`, extracted from `libshell-18.so`). On a private test bus
+  the test can own the first itself.
+- A Wayland socket path must fit in 108 bytes (Mutter fails with "socket path
+  ... exceeds 108 bytes"), so a test's `XDG_RUNTIME_DIR` must be short.
+- A fresh home makes GNOME Shell show the distribution's welcome tour over
+  the first window; `org.gnome.shell welcome-dialog-last-shown-version`
+  set high turns it off.
+
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 
 - Flathub (docs.flathub.org/docs/for-app-authors/requirements): web
