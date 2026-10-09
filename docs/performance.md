@@ -58,6 +58,15 @@ Run with `scripts/bench-headless`, three runs each; medians with ranges.
 | memory pressure limit 400 MB | 720 (677–722) | 43 (42–46) | |
 | memory pressure limit 500 MB | 738 (661–744) | 42 (41–44) | **yes** |
 | limit 300 MB + `DocumentViewer` | 725 (721–736) | 41 (40–41) | no: same as 300 alone |
+| 500 MB + `ProcessSwapOnCrossSiteNavigation` off | 747 (742–757) | 38 (38–39) | no: within noise |
+
+The second web process (about 64 MiB) appears only on muse.ai, not on a
+plain page or `about:blank`, and muse.ai has no service worker and only
+same-site iframes. WebKit logs that it turns on process prewarming after a
+cross-site process swap, which muse.ai's login redirects through
+facebook.com cause. Turning the `ProcessSwapOnCrossSiteNavigation` feature
+off did not remove it (the swap is decided at the process-pool level), and
+no public API controls prewarming, so it stays.
 
 A memory pressure limit is the one change that moves memory beyond noise:
 WebKit's web processes release caches and collect garbage before memory

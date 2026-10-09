@@ -88,6 +88,9 @@ impl Engine {
         // smaller for a few points of CPU while visible (docs/performance.md).
         let mut pressure = webkit::MemoryPressureSettings::new();
         pressure.set_memory_limit(WEB_PROCESS_MEMORY_LIMIT_MB);
+        // Never kill a page for its size (WebKit's default, made explicit:
+        // muse.ai's page alone is close to the limit).
+        pressure.set_kill_threshold(0.0);
         let context = webkit::WebContext::builder()
             .memory_pressure_settings(&pressure)
             .build();

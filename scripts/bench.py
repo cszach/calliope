@@ -161,7 +161,11 @@ def run(scenario, profile, settle, window):
                 pids = tree(pid)
                 after = {p: cpu_ticks(p) for p in pids}
                 w1 = time.time()
-                t0, t1 = sum(before.values()), sum(after.values())
+                # Per process: one that appears counts from zero; one that
+                # exits during the window is lost either way, so count only
+                # what is still there at the end.
+                t0 = sum(before.get(p, 0) for p in after)
+                t1 = sum(after.values())
                 pss = sum(pss_kib(p) for p in pids) / 1024
                 if os.environ.get("BENCH_VERBOSE"):
                     for p in pids:
@@ -201,6 +205,9 @@ def main():
         BINARY = a.binary.resolve()
     if not BINARY.exists():
         sys.exit(f"{BINARY} missing: run `cargo build --release` first")
+    if not a.profile:
+        print("warning: no --profile, so this measures the logged-out page, "
+              "not comparable with docs/performance.md", file=sys.stderr)
 
     results = []
     for scenario in a.scenarios.split(","):

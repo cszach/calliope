@@ -8,7 +8,11 @@ exec dbus-run-session -- sh -c '
   mutter --headless --wayland --no-x11 --virtual-monitor 1280x800 \
     --wayland-display=calliope-bench >/dev/null 2>&1 &
   compositor=$!
-  sleep 3
+  # Wait for the compositor socket rather than a fixed time.
+  tries=0
+  until [ -S "$XDG_RUNTIME_DIR/calliope-bench" ] || [ $tries -ge 100 ]; do
+    sleep 0.1; tries=$((tries + 1))
+  done
   WAYLAND_DISPLAY=calliope-bench python3 "$0"/bench.py "$@"
   status=$?
   kill $compositor
