@@ -31,9 +31,9 @@ const MENU_REVISION: u32 = 1;
 
 thread_local! {
     static ATTENTION: Cell<bool> = const { Cell::new(false) };
-    /// The token from the last `ProvideXdgActivationToken`, for the click
-    /// that follows it.
-    static TOKEN: RefCell<Option<String>> = const { RefCell::new(None) };
+    /// The token from the last `ProvideXdgActivationToken` and when it came
+    /// (monotonic µs), for the click that follows it.
+    static TOKEN: RefCell<Option<(String, i64)>> = const { RefCell::new(None) };
 }
 
 /// The menu, in order. Ids are dbusmenu item ids; 0 is the root.
@@ -89,9 +89,26 @@ fn status(shown: bool, attention: bool) -> &'static str {
     }
 }
 
-/// Exports the item and its menu and registers with the watcher whenever
-/// one is on the bus. Called from `startup`.
+/// Called from `startup`. A Calliope that GNOME Shell started only to answer
+/// searches shows no icon until it opens a window, so typing in the overview
+/// never flashes one into the top bar.
 pub fn init(app: &Rc<App>) {
+    if !app.gtk.flags().contains(gio::ApplicationFlags::IS_SERVICE) {
+        start(app);
+        return;
+    }
+    let started = Cell::new(false);
+    let a = Rc::clone(app);
+    app.gtk.connect_window_added(move |_, _| {
+        if !started.replace(true) {
+            start(&a);
+        }
+    });
+}
+
+/// Exports the item and its menu and registers with the watcher whenever
+/// one is on the bus.
+fn start(app: &Rc<App>) {
     let Some(connection) = app.gtk.dbus_connection() else {
         log::warn!("top bar icon: no D-Bus connection");
         return;
@@ -110,14 +127,20 @@ pub fn init(app: &Rc<App>) {
     );
 
     // Any Calliope window coming to the front clears the dot.
+    for window in app.gtk.windows() {
+        clear_on_focus(app, &window);
+    }
     let a = Rc::clone(app);
-    app.gtk.connect_window_added(move |_, window| {
-        let a = Rc::clone(&a);
-        window.connect_is_active_notify(move |window| {
-            if window.is_active() {
-                set_attention(&a, false);
-            }
-        });
+    app.gtk
+        .connect_window_added(move |_, window| clear_on_focus(&a, window));
+}
+
+fn clear_on_focus(app: &Rc<App>, window: &gtk::Window) {
+    let a = Rc::clone(app);
+    window.connect_is_active_notify(move |window| {
+        if window.is_active() {
+            set_attention(&a, false);
+        }
     });
 }
 
@@ -238,7 +261,7 @@ fn item_call(app: &Rc<App>, method: &str, params: &glib::Variant) {
     match method {
         "ProvideXdgActivationToken" => {
             if let Some((token,)) = params.get::<(String,)>() {
-                TOKEN.replace(Some(token));
+                TOKEN.replace(Some((token, glib::monotonic_time())));
             }
         }
         "Activate" => run(app, Entry::Open),
@@ -248,28 +271,28 @@ fn item_call(app: &Rc<App>, method: &str, params: &glib::Variant) {
     }
 }
 
+/// The extension sends the token just before the click it belongs to; an
+/// older one belongs to a click that never arrived.
+const TOKEN_LIFETIME_US: i64 = 5_000_000;
+
 fn run(app: &Rc<App>, entry: Entry) {
-    let token = TOKEN.take();
+    let token = TOKEN
+        .take()
+        .filter(|(_, at)| glib::monotonic_time() - at < TOKEN_LIFETIME_US)
+        .map(|(token, _)| token);
     match entry {
-        Entry::Open => {
-            let window = match app.target_window() {
-                Some((window, _)) => window,
-                None => window::create(app, &[]),
-            };
-            present(&window, token);
-        }
+        Entry::Open => app.show_main_window(token.as_deref()),
         Entry::QuickAsk => quick_ask::toggle(app, token.as_deref()),
-        Entry::NewWindow => present(&window::create(app, &[]), token),
+        Entry::NewWindow => {
+            let window = window::create(app, &[]);
+            if let Some(token) = &token {
+                window.set_startup_id(token);
+            }
+            window.present();
+        }
         Entry::Quit => app.gtk.activate_action("quit", None),
         Entry::Separator => {}
     }
-}
-
-fn present(window: &adw::ApplicationWindow, token: Option<String>) {
-    if let Some(token) = token {
-        window.set_startup_id(&token);
-    }
-    window.present();
 }
 
 fn menu_property(name: &str) -> glib::Variant {

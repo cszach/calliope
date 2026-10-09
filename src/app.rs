@@ -261,6 +261,19 @@ impl App {
         }
     }
 
+    /// Brings the current main window forward, or opens one. `token` is an
+    /// activation token that lets Wayland focus it.
+    pub fn show_main_window(self: &Rc<Self>, token: Option<&str>) {
+        let window = match self.target_window() {
+            Some((window, _)) => window,
+            None => window::create(self, &[]),
+        };
+        if let Some(token) = token {
+            window.set_startup_id(token);
+        }
+        window.present();
+    }
+
     /// Turns background mode on or off, saves it, and updates the menu.
     fn set_background_mode(self: &Rc<Self>, on: bool) {
         if self.config().background_mode != on {
@@ -429,12 +442,7 @@ impl App {
                     return;
                 }
             }
-            match app.target_window() {
-                Some((window, _)) => window.present(),
-                None => {
-                    window::open(&app, &[]);
-                }
-            }
+            app.show_main_window(None);
         });
 
         let app = Rc::clone(self);
