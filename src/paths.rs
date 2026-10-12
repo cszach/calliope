@@ -49,12 +49,14 @@ pub fn migrate_from_old_name() {
 }
 
 /// Where an install under the old name kept the directory that is now under
-/// `base`, most recent first: an install into `~/.local`, then the Flatpak,
-/// whose directories are named `kind`. The Flatpak's copy counts only when
-/// `base` is the XDG default for `home`: a run with directories of its own (a
-/// test, a benchmark) must not take the real profile.
+/// `base`, the one used last first: the Flatpak, whose directories are named
+/// `kind`, then an install into `~/.local`, which the Flatpak replaced. A
+/// machine that had both keeps the older one where it is. The Flatpak's copy
+/// counts only when `base` is the XDG default for `home`: a run with
+/// directories of its own (a test, a benchmark) must not take the real
+/// profile.
 fn old_dirs(home: &Path, base: &Path, kind: &str, default: &str) -> Vec<PathBuf> {
-    let mut dirs = vec![base.join(OLD_DIR_NAME)];
+    let mut dirs = Vec::new();
     if base == home.join(default) {
         dirs.push(
             home.join(".var/app")
@@ -63,6 +65,7 @@ fn old_dirs(home: &Path, base: &Path, kind: &str, default: &str) -> Vec<PathBuf>
                 .join(OLD_DIR_NAME),
         );
     }
+    dirs.push(base.join(OLD_DIR_NAME));
     dirs
 }
 
@@ -120,13 +123,13 @@ mod tests {
     }
 
     #[test]
-    fn flatpak_profile_counts_only_for_the_default_directories() {
+    fn flatpak_profile_comes_first_and_only_for_the_default_directories() {
         let home = Path::new("/home/u");
         assert_eq!(
             old_dirs(home, &home.join(".local/share"), "data", ".local/share"),
             [
-                home.join(".local/share/calliope"),
                 home.join(".var/app/io.github.cszach.Calliope/data/calliope"),
+                home.join(".local/share/calliope"),
             ]
         );
         let own = Path::new("/tmp/bench/data");
