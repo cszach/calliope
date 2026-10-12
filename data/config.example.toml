@@ -41,9 +41,6 @@ height = 640
 # Send a prompt from the search provider or `calliope --ask` as soon as it is
 # typed in. Set to false to review it and press Enter yourself.
 submit = true
-# Set once the global shortcut is bound, so Calliope binds it again at startup
-# without asking. Managed by Calliope.
-shortcut_bound = false
 
 [search_provider]
 # Minimum characters typed in the Activities overview before "Ask Muse" appears.

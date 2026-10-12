@@ -2,9 +2,8 @@
 """Starts Calliope in clean, headless desktops and checks that it works.
 
 Everything runs as a new user would meet it: a fresh home directory, its own
-runtime directory and D-Bus session, no Calliope config, and (with --flatpak)
-a Flatpak installation holding only Calliope. Each case starts a display
-server, launches Calliope with --debug, waits for the start page to load,
+runtime directory and D-Bus session, and no Calliope config. Each case starts a
+display server, launches Calliope with --debug, waits for the start page to load,
 asks the page for its device pixel ratio, takes a screenshot of the whole
 screen, and quits.
 
@@ -14,8 +13,7 @@ GDK_SCALE=SCALE; GTK scales X11 by whole numbers only); "+safe" adds
 --safe-graphics. Wayland needs gnome-shell and a system bus (GNOME Shell
 will not start without one), X11 needs Xvfb and ImageMagick.
 
-Usage: scripts/smoke.py [--binary PATH | --flatpak BUNDLE]
-                        [--cases wayland@1,wayland@1.25,...] [--out DIR]
+Usage: scripts/smoke.py [--binary PATH] [--cases wayland@1,wayland@1.25,...] [--out DIR]
 
 Prints a Markdown table and writes each case's screenshot and logs to DIR
 (default target/smoke), named after the case. Exits 1 when a case fails.
@@ -143,12 +141,11 @@ def start_x11(log):
 
 def forget_calliope(home):
     """No config, login or cache from an earlier case."""
-    for path in (".config/calliope", ".local/share/calliope", ".cache/calliope",
-                 f".var/app/{APP_ID}"):
+    for path in (".config/calliope", ".local/share/calliope", ".cache/calliope"):
         shutil.rmtree(home / path, ignore_errors=True)
 
 
-def run_case(case, launcher, out, flatpak):
+def run_case(case, launcher, out):
     display, _, rest = case.partition("@")
     scale, _, extra = rest.partition("+")
     home = Path(os.environ["HOME"])
@@ -178,15 +175,8 @@ def run_case(case, launcher, out, flatpak):
                 env["DISPLAY"] = x_display
                 env["GDK_SCALE"] = scale
                 screenshot = lambda path: x11_screenshot(x_display, path)
-            if flatpak:
-                command = ["flatpak", "run", "--user"]
-                if display == "x11":
-                    command.append(f"--env=GDK_SCALE={scale}")
-                command += [APP_ID] + args
-            else:
-                command = [str(launcher)] + args
-            proc = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
-                                    start_new_session=True)
+            proc = subprocess.Popen([str(launcher)] + args, env=env, stdout=log,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
 
             if not wait_for(lambda: LOADED.search(read()), 90):
                 result["note"] = "muse.ai did not finish loading in 90 s"
@@ -240,16 +230,8 @@ def inner(opts):
     # The first-login tour would cover the window.
     subprocess.run(["gsettings", "set", "org.gnome.shell",
                     "welcome-dialog-last-shown-version", "'999'"])
-    if opts.flatpak:
-        subprocess.run(["flatpak", "--user", "remote-add", "--if-not-exists", "flathub",
-                        "https://dl.flathub.org/repo/flathub.flatpakrepo"], check=True)
-        subprocess.run(["flatpak", "--user", "install", "-y", "--noninteractive",
-                        "--bundle", str(Path(opts.flatpak).resolve())],
-                       check=True, stdout=subprocess.DEVNULL)
-    results = [run_case(case, opts.binary, out, opts.flatpak)
-               for case in opts.cases.split(",")]
-    what = f"Flatpak {Path(opts.flatpak).name}" if opts.flatpak else f"binary {opts.binary}"
-    print(f"Calliope smoke test, {what}, {time.strftime('%Y-%m-%d')}\n")
+    results = [run_case(case, opts.binary, out) for case in opts.cases.split(",")]
+    print(f"Calliope smoke test, binary {opts.binary}, {time.strftime('%Y-%m-%d')}\n")
     print("| Case | Result | Page | devicePixelRatio | WebGL2 | Note |")
     print("|---|---|---|---|---|---|")
     for r in results:
@@ -260,9 +242,7 @@ def inner(opts):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--binary", default=str(REPO / "target/release/calliope"))
-    group.add_argument("--flatpak", metavar="BUNDLE")
+    parser.add_argument("--binary", default=str(REPO / "target/release/calliope"))
     parser.add_argument("--cases", default=DEFAULT_CASES)
     parser.add_argument("--out", default=str(REPO / "target/smoke"))
     opts = parser.parse_args()

@@ -201,74 +201,9 @@ its source and the date it was checked. When one changes, edit it in place.
 - The session bus here is dbus-broker. A newly installed
   `~/.local/share/dbus-1/services/*.service` is picked up after
   `org.freedesktop.DBus.ReloadConfig`, which `make install` calls.
-
-## Flatpak (checked 2026-10-09)
-
-- `org.gnome.Platform//51` (Flathub build of 2026-10-04) has GTK 4.24,
-  libadwaita, WebKitGTK 2.54.1 (`libwebkitgtk-6.0.so.4.19.4`, the same release
-  as Fedora 44's, so still no WebRTC), and GStreamer's libav, VA,
-  PipeWire and PulseAudio plugins. Its `GST_PLUGIN_SYSTEM_PATH` includes the
-  `org.freedesktop.Platform.codecs-extra` extension. It is built on
-  freedesktop 26.08, so the Rust SDK extension is `rust-stable//26.08`.
-- Uninstalling `org.freedesktop.Sdk//26.08` also removes
-  `org.freedesktop.Platform.codecs-extra//26.08-extra`, a related ref that
-  installed apps still use; reinstall it afterwards.
-- The `org.flatpak.Builder` app runs the build on the host through the
-  Flatpak session helper, so its state and build directories must be at the
-  same path inside its sandbox and outside. Its `/tmp` and `/var/tmp` are
-  private, so only paths under `$HOME` work. CI uses
-  `ghcr.io/flathub-infra/flatpak-github-actions:gnome-51` (built on the
-  `flatpak-builder-lint` image, so the linter is on `PATH`), run
-  `--privileged`.
-- A sandboxed app cannot read GNOME's `org.gnome.settings-daemon.global-shortcuts`
-  schema (the runtime does not ship it and GSettings uses the keyfile
-  backend), so Calliope remembers a successful bind in its config. Only host
-  apps call `Registry.Register`; Flatpak identifies sandboxed ones.
-- The Background portal (`RequestBackground`, with `autostart` and
-  `commandline`) asks the user once, then writes the autostart entry on the
-  host itself. A request with `autostart: false` removes it.
-- Flatpak exports `share/gnome-shell/search-providers/*.ini` and
-  `share/dbus-1/services/*.service` from the app into its exports directory,
-  which is on the session's `XDG_DATA_DIRS`. So the search provider needs no
-  sudo, and the service's `Exec` is rewritten to `flatpak run`.
-- If every Flatpak launch fails with `bwrap: Can't find source path
-  /run/user/1000/doc/by-app/<app id>`, the document portal is running but
-  its FUSE mount at `/run/user/1000/doc` is gone; `systemctl --user restart
-  xdg-document-portal` mounts it again. Seen on Zach's machine 2026-10-09,
-  the morning /home had filled up; GNOME Software's Open did nothing until
-  the restart.
-- `flatpak run --env=XDG_CONFIG_HOME=…` (and the other XDG variables) does not
-  take effect: Flatpak sets them to `~/.var/app/<id>/…` itself. A test run of
-  an installed app id therefore uses the real profile in `~/.var/app`, even under
-  another `--gapplication-app-id` (checked 2026-10-09, by mistake, on Zach's
-  profile).
-- xdg-dbus-proxy (`flatpak-proxy.c`, main, read 2026-10-09) treats an outgoing
-  message with no destination as talking to the bus, which every app may do, so
-  a sandboxed app's broadcast signals (such as StatusNotifierItem's `NewStatus`)
-  get out. Incoming method calls are not filtered, and replies are allowed once
-  per outstanding call, so the top bar extension can call into the app with only
-  `--talk-name=org.kde.StatusNotifierWatcher`. Checked live: the sandboxed build
-  registers and its properties read from outside.
-- Flatpak forces `DefaultDisabled=true` into every search provider `.ini` it exports
-  (`flatpak-dir.c`, `g_key_file_set_boolean (keyfile, "Shell Search Provider",
-  "DefaultDisabled", TRUE)`, main, read 2026-10-09). GNOME Shell then skips the provider,
-  without logging, until its desktop id is in `org.gnome.desktop.search-providers enabled`,
-  which the Search panel in Settings sets (`remoteSearch.js`, `loadRemoteSearchProviders`).
-  So a Flatpak app's overview search is off until the user switches it on there. Seen on
-  Zach's machine with Calliope, Authenticator, Eyedropper and Icon Library (2026-10-09).
 - Looking Glass (`lookingGlass.js`, GNOME Shell 50) splits the input on every `;` and
   prefixes the last piece with `return`, so any semicolon inside a block yields `undefined`.
   It predeclares `GLib`, `Gio`, `Shell`, `St`, `Main` and allows `await import(...)`.
-- GitHub Pages for this repository (enabled 2026-10-09 with the Actions
-  source) is served at `https://zachnguyen.com/calliope/`: the account's
-  user site has a custom domain, and `cszach.github.io/calliope/` answers
-  301 to it. The repository URLs use the canonical address.
-- The `github-pages` environment that enabling Pages creates lets only the
-  `main` branch deploy; a tag's deploy job fails with "Tag "v0.1.0" is not
-  allowed to deploy to github-pages due to environment protection rules".
-  A tag policy `v*` was added on 2026-10-09 (`gh api -X POST
-  repos/cszach/calliope/environments/github-pages/deployment-branch-policies
-  -f name='v*' -f type=tag`), so release tags deploy.
 
 ## Other distributions and headless testing (checked 2026-10-09)
 
@@ -323,8 +258,9 @@ What `scripts/demo.py` relies on, found by running it:
   `org.gnome.settings-daemon.global-shortcuts` already lists the app and its
   relocatable `shortcuts` key holds the binding, and pressing the keys through
   the remote desktop session triggers it.
-- Flatpak 1.18.4 accepts an absolute path in `WAYLAND_DISPLAY`, so an app can
-  run on one desktop's display with another `XDG_RUNTIME_DIR` and D-Bus session.
+- libwayland-client 1.26.0 accepts an absolute path in `WAYLAND_DISPLAY`, so an
+  app can run on one desktop's display with another `XDG_RUNTIME_DIR` and D-Bus
+  session (checked 2026-10-12).
 
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 
@@ -335,8 +271,9 @@ What `scripts/demo.py` relies on, found by running it:
   the example that a WhatsApp client cannot have "WhatsApp" in its name.
   Flathub's generative-AI policy requires disclosing AI-generated code,
   forbids AI-assisted manifests and AI-driven submission pull requests, and
-  lets reviewers reject on the extent of generated code. So Calliope ships
-  from a self-hosted Flatpak repository (Zach's choice, 2026-10-08).
+  lets reviewers reject on the extent of generated code. The app is not on
+  Flathub and is not published anywhere else: it is a GitHub repository that
+  people build and install with `make install` (Zach's choice, 2026-10-12).
 - Meta's trademark page (meta.com/brand/resources/meta/our-trademarks/)
   bars Meta marks "as or as part of any" trademark, name, username or
   domain, and anything confusingly similar; WhatsApp's adds phonetic

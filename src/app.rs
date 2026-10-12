@@ -279,17 +279,7 @@ impl App {
         if self.config().background_mode != on {
             self.config_mut().background_mode = on;
             self.save_config();
-            background::sync(self, self.gtk.active_window());
-        }
-        self.apply_background_mode();
-    }
-
-    /// Turns background mode off without asking the portal again, after the
-    /// user refused it there.
-    pub fn leave_background_mode(&self) {
-        if self.config().background_mode {
-            self.config_mut().background_mode = false;
-            self.save_config();
+            background::sync(self);
         }
         self.apply_background_mode();
     }

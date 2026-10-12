@@ -110,7 +110,7 @@ fn general_page(
     start_at_login.connect_active_notify(move |row| {
         a.config_mut().start_at_login = row.is_active();
         a.save_config();
-        background::sync(&a, row.root().and_downcast());
+        background::sync(&a);
     });
     background.add(&start_at_login);
     let top_bar = adw::SwitchRow::builder()
@@ -154,9 +154,12 @@ fn general_page(
         "Type a question in the Activities overview to ask Muse. With a prefix such as “?”, \
          only questions that start with it are offered.",
     );
-    // Flatpak exports every search provider switched off.
-    if ashpd::is_sandboxed() {
-        description.push_str(" First switch Calliope on in Settings, under Search.");
+    // `make install` cannot install it: GNOME Shell reads system folders only.
+    if !crate::search_provider::installed() {
+        description.push_str(
+            " Overview search is not installed yet: run “make install-search-provider”, then \
+             log out and back in.",
+        );
     }
     let search = adw::PreferencesGroup::builder()
         .title("Search")

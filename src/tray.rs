@@ -4,8 +4,7 @@
 //! focused for since.
 //!
 //! The item and its `com.canonical.dbusmenu` menu are exported on the app's
-//! own connection and registered under the app's bus name, so the Flatpak
-//! needs only to talk to the watcher. The extension sends an activation token
+//! own connection and registered under the app's bus name. The extension sends an activation token
 //! before each click (`ProvideXdgActivationToken`), which lets Wayland focus
 //! the window the click opens.
 
