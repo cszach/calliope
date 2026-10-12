@@ -241,28 +241,6 @@ fn emit_status(app: &App) {
     }
 }
 
-/// Whether `make install` found Muse's own icons, and so installed its mark
-/// for the top bar instead of the repository's symbolic icons.
-fn official_icons() -> bool {
-    gdk::Display::default()
-        .is_some_and(|display| gtk::IconTheme::for_display(&display).has_icon(&icon_names(true).0))
-}
-
-/// The icon and its variant with a notification dot.
-fn icon_names(official: bool) -> (String, String) {
-    if official {
-        (
-            format!("{APP_ID}-top-bar"),
-            format!("{APP_ID}-top-bar-attention"),
-        )
-    } else {
-        (
-            format!("{APP_ID}-symbolic"),
-            format!("{APP_ID}-attention-symbolic"),
-        )
-    }
-}
-
 fn item_property(app: &App, name: &str) -> glib::Variant {
     let no_pixmaps: Vec<(i32, i32, Vec<u8>)> = Vec::new();
     match name {
@@ -271,8 +249,8 @@ fn item_property(app: &App, name: &str) -> glib::Variant {
         "Title" => "Muse".to_variant(),
         "Status" => status(app.config().top_bar_icon, ATTENTION.get()).to_variant(),
         "WindowId" => 0i32.to_variant(),
-        "IconName" => icon_names(official_icons()).0.to_variant(),
-        "AttentionIconName" => icon_names(official_icons()).1.to_variant(),
+        "IconName" => format!("{APP_ID}-symbolic").to_variant(),
+        "AttentionIconName" => format!("{APP_ID}-attention-symbolic").to_variant(),
         "IconPixmap" | "OverlayIconPixmap" | "AttentionIconPixmap" => no_pixmaps.to_variant(),
         "ToolTip" => ("", no_pixmaps, "Muse", "").to_variant(),
         "ItemIsMenu" => false.to_variant(),
@@ -417,24 +395,6 @@ mod tests {
         assert_eq!(Entry::from_id(0), None);
         assert_eq!(Entry::from_id(MENU.len() as i32 + 1), None);
         assert_eq!(Entry::from_id(-1), None);
-    }
-
-    #[test]
-    fn top_bar_uses_muses_mark_when_it_is_installed() {
-        assert_eq!(
-            icon_names(true),
-            (
-                "io.github.cszach.Muse-top-bar".to_owned(),
-                "io.github.cszach.Muse-top-bar-attention".to_owned()
-            )
-        );
-        assert_eq!(
-            icon_names(false),
-            (
-                "io.github.cszach.Muse-symbolic".to_owned(),
-                "io.github.cszach.Muse-attention-symbolic".to_owned()
-            )
-        );
     }
 
     #[test]
