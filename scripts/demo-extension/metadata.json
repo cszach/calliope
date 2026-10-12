@@ -1,0 +1,6 @@
+{
+  "uuid": "calliope-demo@cszach.github.io",
+  "name": "Calliope demo helper",
+  "description": "Used only by scripts/demo.py in its headless session: hides the screen sharing indicator and reports where things are on screen.",
+  "shell-version": ["50"]
+}

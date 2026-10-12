@@ -297,6 +297,35 @@ its source and the date it was checked. When one changes, edit it in place.
   the first window; `org.gnome.shell welcome-dialog-last-shown-version`
   set high turns it off.
 
+## Recording the headless desktop (GNOME Shell 50.5, Mutter 50.5, PipeWire 1.6.9, checked 2026-10-09)
+
+What `scripts/demo.py` relies on, found by running it:
+
+- Mutter's own `org.gnome.Mutter.ScreenCast` and
+  `org.gnome.Mutter.RemoteDesktop` D-Bus APIs answer any caller on the session
+  bus, with no portal and no dialog. A screen cast session created with
+  `remote-desktop-session-id` starts with the remote desktop session, and
+  `RecordMonitor("Meta-0", {cursor-mode: 1})` draws the pointer into the frames.
+  The stream's `PipeWireStreamAdded` signal gives a node that GStreamer's
+  `pipewiresrc path=N` reads, once `pipewire` and `wireplumber` run in the
+  session.
+- `NotifyPointerMotionAbsolute` takes stream coordinates, which are physical
+  pixels: at scale 2, logical (x, y) is (2x, 2y).
+- GNOME Shell shows its screen sharing indicator (an orange pill in the top bar)
+  for every remote desktop session, because their handles are not `isRecording`
+  (`ScreenSharingIndicator` in `ui/status/remoteAccess.js`, extracted from
+  `libshell-18.so`). Hiding `Main.panel.statusArea.screenSharing.container` from
+  an extension removes it.
+- The first pointer event in a new session closes the overview GNOME Shell opens
+  at login.
+- The app grid leaves out the apps pinned to the dash.
+- `xdg-desktop-portal-gnome` binds a global shortcut without a dialog when
+  `org.gnome.settings-daemon.global-shortcuts` already lists the app and its
+  relocatable `shortcuts` key holds the binding, and pressing the keys through
+  the remote desktop session triggers it.
+- Flatpak 1.18.4 accepts an absolute path in `WAYLAND_DISPLAY`, so an app can
+  run on one desktop's display with another `XDG_RUNTIME_DIR` and D-Bus session.
+
 ## Shipping: Flathub, trademarks, the official apps (researched 2026-10-08)
 
 - Flathub (docs.flathub.org/docs/for-app-authors/requirements): web
