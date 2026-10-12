@@ -30,14 +30,21 @@ its source and the date it was checked. When one changes, edit it in place.
   (2026-10-12); `/favicon.svg` and `/favicon.png` answer 401. The icons are
   Meta's artwork, so the repository holds none of them: `make install`
   downloads them into the ignored `data/icons/official/`
-  (`scripts/fetch-icon.sh`), installs the app icon, and builds the top bar
+  (`scripts/fetch-icon.sh`), installs the app icon, and builds the symbolic
   icon and its notification-dot variant from the favicon as SVG files that
-  embed the PNG (`scripts/top-bar-icon.sh`). When the download fails it
+  embed the PNG (`scripts/symbolic-icon.sh`). When the download fails it
   installs the repository's own icons.
-- The AppIndicator extension (appindicatorsupport@rgcjonas.gmail.com, Fedora
-  44 package) shows a full-colour `IconName` from `hicolor/scalable/status`
-  as it is, including an SVG that embeds a PNG and masks part of it
-  (checked 2026-10-12 in a headless GNOME Shell 50.5).
+- GNOME Shell 50.5 recolours a symbolic SVG with a stylesheet that sets
+  `fill` on `rect, path, ellipse, circle, polygon` to the text colour, and
+  on `.success`, `.error` and `.warning` to those colours, all `!important`
+  (strings in `libst-18.so`). It applies inside masks too, and leaves
+  `image`, `line` and strokes alone. So a symbolic icon can take its shape
+  from an embedded PNG: a `rect` masked by the image, with a filter that
+  turns the image white so that only its transparency counts. Checked
+  2026-10-12 in a headless Shell with the AppIndicator extension
+  (appindicatorsupport@rgcjonas.gmail.com, Fedora 44 package): the top bar
+  and notification headers draw it in white, and a `circle class="error"`
+  stays red.
 
 ## WebKitGTK 2.54.1 (Fedora 44 package `webkitgtk6.0-2.54.1-1.fc44`)
 
