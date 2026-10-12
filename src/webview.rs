@@ -144,7 +144,7 @@ fn decide_policy(
 /// It hides again when the view moves to another address.
 pub fn webrtc_banner(view: &webkit::WebView) -> adw::Banner {
     let banner = adw::Banner::new(
-        "This page needs WebRTC, which Calliope’s web engine does not support yet",
+        "This page needs WebRTC, which this app’s web engine does not support yet",
     );
     banner.set_button_label(Some("Open in _Browser"));
     banner.connect_button_clicked(glib::clone!(

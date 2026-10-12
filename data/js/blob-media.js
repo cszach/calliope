@@ -1,4 +1,4 @@
-// Runs at document start in the isolated "calliope" world, on every page.
+// Runs at document start in the isolated "muse-gnome" world, on every page.
 // WebKitGTK 2.54 corrupts audio and video played from a blob: URL: the blob's
 // bytes are intact, yet frames break up after a second or so. The same bytes
 // play cleanly from a data: URL, so when a media element starts loading a

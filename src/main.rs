@@ -1,4 +1,4 @@
-//! Calliope: an unofficial GNOME desktop client for Meta's Muse (muse.ai).
+//! An unofficial GNOME desktop client for Meta's Muse (muse.ai).
 
 mod app;
 mod background;
@@ -28,7 +28,7 @@ use config::Config;
 
 fn main() -> glib::ExitCode {
     // Millisecond timestamps: scripts/bench.py times startup from the log.
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("calliope=info"))
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("muse=info"))
         .format_timestamp_millis()
         .init();
 

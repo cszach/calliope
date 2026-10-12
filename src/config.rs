@@ -1,4 +1,4 @@
-//! User configuration, stored as TOML in `~/.config/calliope/config.toml`.
+//! User configuration, stored as TOML in `~/.config/muse-gnome/config.toml`.
 //!
 //! Every key has a default, so a missing or partial file is fine. The file is
 //! also where the app remembers window size and permission answers.
@@ -156,7 +156,7 @@ impl OriginPermissions {
     }
 }
 
-const SAVED_HEADER: &str = "# Calliope settings that differ from the defaults. Calliope rewrites this file\n\
+const SAVED_HEADER: &str = "# Muse settings that differ from the defaults. Muse rewrites this file\n\
      # when a setting changes, keeping your edits but not comments. See\n\
      # config.example.toml in the repository for every key.\n\n";
 
@@ -227,9 +227,9 @@ impl Config {
         }
     }
 
-    /// Writes the settings Calliope changed since `saved`, the config as it
+    /// Writes the settings Muse changed since `saved`, the config as it
     /// last read or wrote the file, into the file as it is now: keys edited
-    /// by hand meanwhile, and keys Calliope does not know, stay. A file that
+    /// by hand meanwhile, and keys Muse does not know, stay. A file that
     /// cannot be read, or would not load, is left untouched and is an error.
     /// With nothing changed, the file is not touched at all.
     ///
@@ -282,7 +282,7 @@ mod tests {
     use super::*;
 
     fn temp_path(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("calliope-test-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("muse-test-{}-{name}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("config.toml")
     }
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn saving_overrides_a_key_calliope_changed() {
+    fn saving_overrides_a_key_the_app_changed() {
         let path = temp_path("override");
         let saved = Config::default();
         std::fs::write(&path, "zoom_level = 1.5\n").unwrap();
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn saving_removes_only_what_calliope_removed() {
+    fn saving_removes_only_what_the_app_removed() {
         let path = temp_path("removed");
         let mut saved = Config::default();
         saved.remember_permission("https://muse.ai", Capability::Microphone, true);

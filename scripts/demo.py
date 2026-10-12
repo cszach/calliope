@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Records Calliope's demo video and screenshots, by script.
+"""Records Muse's demo video and screenshots, by script.
 
 The tour runs in a headless GNOME Shell of its own, so it records the same
 desktop every time and never touches yours: a fresh home holding only a copy
@@ -7,11 +7,11 @@ of the demo profile, its own D-Bus session, runtime directory and PipeWire.
 Mutter's ScreenCast API records the screen and its RemoteDesktop API moves
 the pointer and types; the demo-extension next to this script hides the
 sharing indicator that input session would put in the top bar, and tells the
-script where windows, labels and notification banners are. Calliope is
+script where windows, labels and notification banners are. Muse is
 installed into the session with `make install`, as people install it.
 
 Commands:
-  login        Opens Calliope from the demo profile on your desktop, to log
+  login        Opens Muse from the demo profile on your desktop, to log
                in to the demo account once. Quit it with Ctrl+Q when done.
   record       Runs the tour, saves the raw recording, the timeline and
                window screenshots to OUT, then edits the video (see edit).
@@ -22,9 +22,10 @@ Usage: scripts/demo.py login [--profile DIR]
        scripts/demo.py record [--profile DIR] [--out DIR]
        scripts/demo.py edit [--out DIR]
 
-The profile defaults to ~/.local/share/calliope-demo and OUT to target/demo.
-Needs what building Calliope needs, gnome-shell, pipewire, wireplumber, GStreamer's pipewiresrc and x264enc,
-ffmpeg, and Python's GObject bindings and Pillow.
+The profile defaults to ~/.local/share/muse-gnome-demo and OUT to target/demo.
+Needs what building Muse needs, and gnome-shell, pipewire, wireplumber,
+GStreamer's pipewiresrc and x264enc, ffmpeg, and Python's GObject bindings and
+Pillow.
 """
 
 import argparse
@@ -37,19 +38,20 @@ import tempfile
 import time
 from pathlib import Path
 
-APP_ID = "io.github.cszach.Calliope"
+APP_ID = "io.github.cszach.Muse"
 REPO = Path(__file__).resolve().parent.parent
 EXTENSION = REPO / "scripts/demo-extension"
 EXTENSION_UUID = json.loads((EXTENSION / "metadata.json").read_text())["uuid"]
-DEFAULT_PROFILE = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "calliope-demo"
+DEFAULT_PROFILE = (Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+                   / "muse-gnome-demo")
 DEFAULT_OUT = REPO / "target/demo"
 # Logical size 1440x900 at scale 2: a common laptop, with sharp text.
 MONITOR = (2880, 1800)
 SCALE = 2
 WAYLAND_DISPLAY = "demo-wayland"
-# The size Calliope's window opens at, which the screenshots also use.
+# The size Muse's window opens at, which the screenshots also use.
 WINDOW = (1000, 700)
-# The app grid shows these apps, as a stock GNOME would, and Calliope.
+# The app grid shows these apps, as a stock GNOME would, and Muse.
 GRID_APPS = {
     "org.gnome.Calculator", "org.gnome.Calendar", "org.gnome.Characters",
     "org.gnome.clocks", "org.gnome.Contacts", "org.gnome.Loupe", "org.gnome.Maps",
@@ -85,7 +87,7 @@ GSETTINGS = [
         for ini in Path("/usr/share/gnome-shell/search-providers").glob("*.ini")
         for line in ini.read_text(errors="replace").splitlines()
         if line.startswith("DesktopId=")))),
-    # The binding Calliope's "Set Up Keyboard Shortcut…" leaves behind.
+    # The binding Muse's "Set Up Keyboard Shortcut…" leaves behind.
     ("org.gnome.settings-daemon.global-shortcuts", "applications", f"['{APP_ID}']"),
     (f"org.gnome.settings-daemon.global-shortcuts.application:"
      f"/org/gnome/settings-daemon/global-shortcuts/{APP_ID}/", "shortcuts",
@@ -94,17 +96,20 @@ GSETTINGS = [
 
 
 def app_data(home):
-    """Where Calliope keeps the login and site data of the user at `home`."""
-    return home / ".local/share/calliope"
+    """Where Muse keeps the login and site data of the user at `home`."""
+    return home / ".local/share/muse-gnome"
 
 
 def install(prefix):
-    """Calliope as `make install` lays it out, in a prefix of its own, with
+    """Muse as `make install` lays it out, in a prefix of its own, with
     the search provider GNOME Shell reads from system data directories."""
-    # AUTOSTARTDIR: `make install` refreshes an autostart entry it finds, and
-    # yours must keep pointing at your own install.
+    # Your own install must not notice: `make install` refreshes an autostart
+    # entry it finds, and asks the session bus to stop a running Calliope and
+    # to reload its service files.
+    env = dict(os.environ, DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent")
     subprocess.run(["make", "-C", str(REPO), "install", f"PREFIX={prefix}",
-                    f"AUTOSTARTDIR={prefix}/autostart"], check=True, stdout=subprocess.DEVNULL)
+                    f"AUTOSTARTDIR={prefix}/autostart"], check=True, env=env,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     providers = prefix / "share/gnome-shell/search-providers"
     providers.mkdir(parents=True, exist_ok=True)
     shutil.copy(REPO / f"data/{APP_ID}.search-provider.ini", providers)
@@ -133,19 +138,19 @@ def remove_runtime(runtime):
 
 
 def login(opts):
-    """Calliope from the demo profile, on this desktop but on a D-Bus session
-    of its own, so it runs beside your own Calliope."""
+    """Muse from the demo profile, on this desktop but on a D-Bus session
+    of its own, so it runs beside your own Muse."""
     subprocess.run(["make", "-C", str(REPO), "build"], check=True)
     profile = Path(opts.profile)
     profile.mkdir(parents=True, exist_ok=True)
-    runtime = short_tempdir("calliope-demo-")
+    runtime = short_tempdir("muse-demo-")
     env = clean_env(profile, runtime)
     real_runtime = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
     display = os.environ.get("WAYLAND_DISPLAY", "wayland-0")
     env["WAYLAND_DISPLAY"] = str(Path(real_runtime) / display)
-    print(f"Log in to the demo account, then quit Calliope with Ctrl+Q.\nProfile: {profile}")
+    print(f"Log in to the demo account, then quit Muse with Ctrl+Q.\nProfile: {profile}")
     try:
-        status = subprocess.run(["dbus-run-session", "--", str(REPO / "target/release/calliope")],
+        status = subprocess.run(["dbus-run-session", "--", str(REPO / "target/release/muse")],
                                 env=env).returncode
     finally:
         remove_runtime(runtime)
@@ -164,12 +169,12 @@ def record(opts):
     for name in ("raw.mkv", "events.json", "demo.mp4", "main.png", "quick-ask.png",
                  "preferences.png"):
         (out / name).unlink(missing_ok=True)
-    root = short_tempdir("calliope-demo-")
+    root = short_tempdir("muse-demo-")
     home, runtime = root / "home", root / "run"
     try:
         # Login and site data, but not the cache or the settings it left.
         shutil.copytree(app_data(profile), app_data(home), symlinks=True)
-        config = home / ".config/calliope/config.toml"
+        config = home / ".config/muse-gnome/config.toml"
         config.parent.mkdir(parents=True, exist_ok=True)
         config.write_text(DEMO_CONFIG)
         shutil.copytree(EXTENSION,
@@ -180,7 +185,7 @@ def record(opts):
         env = clean_env(home, runtime)
         # Not /usr/local/share, where your own install's search provider is.
         env["XDG_DATA_DIRS"] = f"{root / 'prefix/share'}:/usr/share"
-        env["CALLIOPE_DEMO_INNER"] = "1"
+        env["MUSE_DEMO_INNER"] = "1"
         status = subprocess.run(
             ["dbus-run-session", "--", sys.executable, __file__, "record",
              "--profile", str(profile), "--out", str(out)], env=env).returncode
@@ -267,9 +272,9 @@ class Session:
 
     def demo(self, method, *args):
         params = self.GLib.Variant(f"({'s' * len(args)})", args) if args else None
-        return json.loads(self.call("io.github.cszach.CalliopeDemo",
-                                    "/io/github/cszach/CalliopeDemo",
-                                    "io.github.cszach.CalliopeDemo", method, params)[0])
+        return json.loads(self.call("io.github.cszach.MuseDemo",
+                                    "/io/github/cszach/MuseDemo",
+                                    "io.github.cszach.MuseDemo", method, params)[0])
 
     def connect_input(self):
         V = self.GLib.Variant
@@ -448,19 +453,19 @@ def tour(s, out):
     time.sleep(1)
 
     # Launch from the app grid.
-    s.shot("Calliope brings Muse to the GNOME desktop")
+    s.shot("Muse, on the GNOME desktop")
     s.key("Super", "a")
     time.sleep(1.5)  # the grid slides in
-    icon = s.find("Calliope")
+    icon = s.find("Muse")
     if not icon:
-        raise RuntimeError("Calliope is not in the app grid")
-    s.shot("Calliope brings Muse to the GNOME desktop", focus=icon)
+        raise RuntimeError("Muse is not in the app grid")
+    s.shot("Muse, on the GNOME desktop", focus=icon)
     time.sleep(SETTLE)
     s.click(*center(icon))
-    s.shot("Calliope brings Muse to the GNOME desktop")  # the window opens
+    s.shot("Muse, on the GNOME desktop")  # the window opens
     window = s.window()
     if not window:
-        raise RuntimeError("Calliope's window did not open")
+        raise RuntimeError("Muse's window did not open")
     s.shot("The full muse.ai, in its own window", focus=window, speed=3)
     time.sleep(8)  # the page loads
 
@@ -512,7 +517,7 @@ def tour(s, out):
     time.sleep(1.5)
     s.key("Return")
     # GNOME Shell gives search results no activation token, so it may show
-    # "Calliope is ready" instead of raising the window (docs/notes.md).
+    # "Muse is ready" instead of raising the window (docs/notes.md).
     s.wait(lambda: s.demo("Banner") or (s.focused() or {}).get("app") == APP_ID, 10)
     banner = s.banner(2)
     if banner and (s.focused() or {}).get("app") != APP_ID:
@@ -523,7 +528,7 @@ def tour(s, out):
     s.shot("Ask Muse from the Activities overview", focus=window, speed=4)
     time.sleep(10)
 
-    # A notification brings Calliope back.
+    # A notification brings Muse back.
     s.key("Alt", "Tab")
     s.shot("Notifications bring you back", speed=4)
     s.type("Oven: 180 C\n")
@@ -584,7 +589,7 @@ def main():
     if opts.command == "login":
         sys.exit(login(opts))
     if opts.command == "record":
-        sys.exit(record_inner(opts) if os.environ.get("CALLIOPE_DEMO_INNER")
+        sys.exit(record_inner(opts) if os.environ.get("MUSE_DEMO_INNER")
                  else record(opts))
     sys.exit(edit(opts))
 

@@ -62,7 +62,7 @@ jobs:
       - run: make build
       - name: Run it in headless desktops
         shell: bash
-        run: scripts/smoke.py --binary target/release/calliope --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
+        run: scripts/smoke.py --binary target/release/muse --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -103,7 +103,7 @@ jobs:
       - run: make build
       - name: Run it in headless desktops
         shell: bash
-        run: scripts/smoke.py --binary target/release/calliope --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
+        run: scripts/smoke.py --binary target/release/muse --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

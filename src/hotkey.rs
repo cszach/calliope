@@ -21,7 +21,7 @@ const SHORTCUT_ID: &str = "quick-ask";
 const PREFERRED_TRIGGER: &str = "CTRL+ALT+m";
 /// Where GNOME Settings stores the bindings it has confirmed.
 const GNOME_SCHEMA: &str = "org.gnome.settings-daemon.global-shortcuts";
-/// At login the portal may not be up yet when autostart runs Calliope.
+/// At login the portal may not be up yet when autostart runs Muse.
 const STARTUP_RETRIES: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_secs(10);
 
@@ -223,7 +223,7 @@ fn explain(trigger: &str, parent: Option<&gtk::Window>) {
 fn failed(error: &str, parent: Option<&gtk::Window>) {
     // The portal only knows apps with an installed desktop file.
     let cause = if error.contains("App info not found") {
-        "Global shortcuts need Calliope to be installed. Run “make install”, then start Calliope \
+        "Global shortcuts need Muse to be installed. Run “make install”, then start Muse \
          from the app grid."
             .to_owned()
     } else {
@@ -231,7 +231,7 @@ fn failed(error: &str, parent: Option<&gtk::Window>) {
     };
     let body = format!(
         "{cause}\n\nAlternatively, “make install-shortcut” binds Ctrl+Alt+M to \
-         “calliope --quick-ask” as a custom shortcut."
+         “muse --quick-ask” as a custom shortcut."
     );
     let dialog = adw::AlertDialog::new(Some("Can’t Set Up the Shortcut"), Some(&body));
     dialog.add_response("ok", "_OK");

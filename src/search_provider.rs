@@ -1,6 +1,6 @@
 //! The GNOME Shell search provider: type a question in the Activities
 //! overview and send it to Muse. Shell talks to it over D-Bus on the app's
-//! own bus name, starting Calliope as a D-Bus service if it is not running.
+//! own bus name, starting Muse as a D-Bus service if it is not running.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ use crate::{prompt, window};
 const ID_PREFIX: &str = "ask:";
 const INTERFACE: &str = "org.gnome.Shell.SearchProvider2";
 /// Must match `ObjectPath` in the provider's `.ini`.
-const OBJECT_PATH: &str = "/io/github/cszach/Calliope/SearchProvider";
+const OBJECT_PATH: &str = "/io/github/cszach/Muse/SearchProvider";
 const XML: &str = include_str!("../data/dbus/org.gnome.Shell.SearchProvider2.xml");
 
 /// Whether GNOME Shell can find the provider: its `.ini` is in one of the
@@ -51,7 +51,7 @@ pub fn register(app: &Rc<App>) {
     let result = connection
         .register_object(OBJECT_PATH, &interface)
         .method_call(move |_, _, _, _, method, params, invocation| {
-            // Each call restarts the idle timer of a D-Bus-started Calliope.
+            // Each call restarts the idle timer of a D-Bus-started Muse.
             let _hold = a.gtk.hold();
             handle(&a, method, &params, invocation);
         })
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn provider_is_installed_when_a_system_data_dir_has_its_ini() {
-        let base = std::env::temp_dir().join(format!("calliope-provider-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("muse-provider-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let (empty, system) = (base.join("empty"), base.join("system"));
         let providers = system.join("gnome-shell/search-providers");

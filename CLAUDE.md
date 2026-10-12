@@ -1,4 +1,4 @@
-# Calliope
+# Muse for GNOME
 
 An unofficial GNOME desktop client for Meta's Muse AI agent (https://muse.ai).
 It hosts the real web app in the system WebKitGTK engine (no Chromium), keeps
@@ -7,7 +7,9 @@ window on a global shortcut, background notifications, a GNOME Shell search
 provider, and tabs and windows that share one session.
 
 Rust + GTK 4 + libadwaita + WebKitGTK 6.0 (`webkit6` crate), Fedora 44, GNOME
-50, Wayland. App id `io.github.cszach.Calliope`, binary `calliope`.
+50, Wayland. App id `io.github.cszach.Muse`, binary `muse`, repository
+`cszach/muse-gnome`. It is not published anywhere: people build it and run
+`make install`.
 
 ## Start here, every session
 
@@ -78,10 +80,13 @@ the network, the filesystem or the user controls; log and degrade instead.
 
 ## Gotchas
 
-- **"Muse" names Meta's service, never our app.** Meta's trademark rules,
-  GNOME's naming guideline and Flathub forbid the mark in an app's name or
-  icon (docs/notes.md). The app is Calliope; text may say it is a client
-  *for* Muse, and "Can't Reach Muse" or "Ask Muse" describe the service.
+- **"Muse" is Meta's mark, and the app uses it by Zach's decision**
+  (docs/notes.md). Two rules keep that defensible: the repository never holds
+  Meta's artwork (the official icon is downloaded at install time, and
+  `data/icons/official/` is ignored), and the README, the About dialog and
+  the repository description say the app is unofficial and not affiliated
+  with Meta. Where text could mean either the app or Meta's service, say
+  "the app" or "muse.ai".
 
 - **WebKitGTK 2.54 has no WebRTC.** `RTCPeerConnection` does not exist until
   2.56. Microphone capture still works. See `docs/notes.md`.

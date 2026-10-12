@@ -1,12 +1,11 @@
-//! Starting at login: Calliope writes its own autostart entry.
+//! Starting at login: Muse writes its own autostart entry.
 
 use std::path::PathBuf;
 
 use crate::app::App;
 use crate::consts::APP_ID;
 
-const AUTOSTART_TEMPLATE: &str =
-    include_str!("../data/io.github.cszach.Calliope.autostart.desktop.in");
+const AUTOSTART_TEMPLATE: &str = include_str!("../data/io.github.cszach.Muse.autostart.desktop.in");
 
 /// At startup: adopts an autostart entry written by an older version, and
 /// leaves the entry alone otherwise, so a development build never repoints
@@ -41,7 +40,7 @@ fn set_autostart_file(on: bool) {
     let path = autostart_file();
     let result = if on {
         let Some(entry) = autostart_entry() else {
-            log::warn!("cannot find Calliope’s own path for the autostart entry");
+            log::warn!("cannot find Muse’s own path for the autostart entry");
             return;
         };
         path.parent()

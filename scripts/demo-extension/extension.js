@@ -10,7 +10,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const IFACE = `<node>
-  <interface name="io.github.cszach.CalliopeDemo">
+  <interface name="io.github.cszach.MuseDemo">
     <method name="Windows"><arg type="s" direction="out"/></method>
     <method name="Find">
       <arg type="s" direction="in"/>
@@ -38,9 +38,9 @@ export default class DemoExtension extends Extension {
     enable() {
         Main.panel.statusArea.screenSharing.container.hide();
         this._object = Gio.DBusExportedObject.wrapJSObject(IFACE, this);
-        this._object.export(Gio.DBus.session, '/io/github/cszach/CalliopeDemo');
+        this._object.export(Gio.DBus.session, '/io/github/cszach/MuseDemo');
         this._name = Gio.bus_own_name(Gio.BusType.SESSION,
-            'io.github.cszach.CalliopeDemo', Gio.BusNameOwnerFlags.NONE,
+            'io.github.cszach.MuseDemo', Gio.BusNameOwnerFlags.NONE,
             null, null, null);
     }
 
