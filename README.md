@@ -41,7 +41,8 @@ in.
 
 `make install` downloads Muse's icon from muse.ai, because the icon is Meta's
 and this repository does not contain it. Without a network connection the app
-gets a placeholder icon; run `make install` again later to replace it.
+gets a placeholder icon; run `make install` again later to replace it. If Muse's
+icon changes, `make fetch-icon` downloads it again.
 
 Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
 `webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too

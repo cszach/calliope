@@ -78,20 +78,24 @@ install: build $(GENERATED)
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
 	@# Muse's own icons are Meta's artwork: they come from muse.ai, never from
 	@# this repository. Without them (offline, say) the repository's stand in.
-	-@scripts/fetch-icon.sh $(OFFICIAL_SIZES) || echo "Could not download Muse's icons:" \
-		"installing placeholders. Run 'make install' again when online."
 	@# GNOME Shell draws notification headers with the symbolic icon when there
 	@# is one, so with Muse's icons the symbolic ones go; Shell then uses Muse's.
-	if [ -s $(OFFICIAL)/mark.png ]; then \
+	@if scripts/fetch-icon.sh $(OFFICIAL_SIZES); then \
+		set -e; \
 		rm -f $(addprefix $(ICONDIR)/,$(PLACEHOLDER_ICONS)); \
 		for size in $(OFFICIAL_SIZES); do \
 			install -Dm644 $(OFFICIAL)/$$size.png \
 				$(ICONDIR)/$${size}x$${size}/apps/$(APP_ID).png; \
 		done; \
-		mkdir -p $(ICONDIR)/scalable/status; \
-		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png > $(ICONDIR)/$(TOP_BAR_ICON); \
-		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png --dot > $(ICONDIR)/$(TOP_BAR_DOT_ICON); \
+		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png > $(GENDIR)/top-bar.svg; \
+		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png --dot > $(GENDIR)/top-bar-attention.svg; \
+		install -Dm644 $(GENDIR)/top-bar.svg $(ICONDIR)/$(TOP_BAR_ICON); \
+		install -Dm644 $(GENDIR)/top-bar-attention.svg $(ICONDIR)/$(TOP_BAR_DOT_ICON); \
+		echo "Installed Muse's icons."; \
 	else \
+		set -e; \
+		echo "Could not download Muse's icons: installing placeholders." \
+			"Run 'make install' again when online."; \
 		rm -f $(addprefix $(ICONDIR)/,$(OFFICIAL_ICONS)); \
 		for f in $(PLACEHOLDER_ICONS); do \
 			install -Dm644 data/icons/hicolor/$$f $(ICONDIR)/$$f; \

@@ -7,6 +7,7 @@
 # repository's own icons.
 #
 # Does nothing when everything is already there; --refresh downloads again.
+# Succeeds only when every icon is in place afterwards.
 set -eu
 
 dest=data/icons/official
@@ -49,6 +50,11 @@ fetch favicon.ico "$tmp/favicon.ico"
 number() {
 	od -An -t"$1" -j"$2" -N"$3" "$tmp/favicon.ico" | tr -d ' '
 }
+# An ICO file starts with the bytes 00 00 01 00.
+if [ "$(number u4 0 4)" != 65536 ]; then
+	echo "fetch-icon: $site/favicon.ico is not an ICO file" >&2
+	exit 1
+fi
 count=$(number u2 4 2)
 best=0
 i=0
