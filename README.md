@@ -7,9 +7,9 @@ It keeps you logged in across restarts, and adds what a browser tab cannot:
 Quick Ask from any app, Ask Muse from the Activities overview, notifications
 while its window is closed, and tabs and windows that share one login.
 
-This project is not affiliated with or endorsed by Meta. "Muse" is Meta's name
-for its product, and the app only hosts the public website. You need a Muse
-account.
+This project is not affiliated with or endorsed by Meta. "Muse" and its logo are
+Meta's. The app only hosts the public website, and this repository contains none
+of Meta's artwork. You need a Muse account.
 
 ## Install
 
@@ -17,13 +17,13 @@ The app is not in an app store: you build it and install it into `~/.local`.
 First install what it needs. Fedora 44 or later:
 
 ```sh
-sudo dnf install git make gcc cargo gtk4-devel libadwaita-devel webkitgtk6.0-devel
+sudo dnf install git make gcc cargo curl gtk4-devel libadwaita-devel webkitgtk6.0-devel
 ```
 
 Ubuntu 26.04 or later:
 
 ```sh
-sudo apt install git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+sudo apt install git make gcc cargo curl pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
 ```
 
 Then:
@@ -38,6 +38,10 @@ Open Muse from the app grid. To update it, run `git pull` and `make install`
 again. `make uninstall` removes it and keeps your login and settings. The `muse`
 command is in `~/.local/bin`; if your shell does not find it, log out and back
 in.
+
+`make install` downloads Muse's icon from muse.ai, because the icon is Meta's
+and this repository does not contain it. Without a network connection the app
+gets a placeholder icon; run `make install` again later to replace it.
 
 Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
 `webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too

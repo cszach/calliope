@@ -24,9 +24,20 @@ its source and the date it was checked. When one changes, edit it in place.
 - The PWA manifest at `https://muse.ai/manifest.json` names the app "Muse",
   `start_url` `/?__pwa=1`, and lists icons at
   `/images/pwa_icons/{any,maskable}/{512,310,256,192,180,144,96,72,64,48,32}.png?v=3`,
-  fetchable without login (2026-10-08). The icons are Meta's artwork, so the
-  repository holds none of them: it ships its own icon, and `make fetch-icon`
-  downloads the official one into the ignored `data/icons/official/`.
+  fetchable without login (2026-10-08). They show the blue mark on a white
+  rounded square. `https://muse.ai/favicon.ico` holds the mark alone on a
+  transparent background, as PNG images of 16, 32, 48, 64 and 128 pixels
+  (2026-10-12); `/favicon.svg` and `/favicon.png` answer 401. The icons are
+  Meta's artwork, so the repository holds none of them: `make install`
+  downloads them into the ignored `data/icons/official/`
+  (`scripts/fetch-icon.sh`), installs the app icon, and builds the top bar
+  icon and its notification-dot variant from the favicon as SVG files that
+  embed the PNG (`scripts/top-bar-icon.sh`). When the download fails it
+  installs the repository's own icons.
+- The AppIndicator extension (appindicatorsupport@rgcjonas.gmail.com, Fedora
+  44 package) shows a full-colour `IconName` from `hicolor/scalable/status`
+  as it is, including an SVG that embeds a PNG and masks part of it
+  (checked 2026-10-12 in a headless GNOME Shell 50.5).
 
 ## WebKitGTK 2.54.1 (Fedora 44 package `webkitgtk6.0-2.54.1-1.fc44`)
 

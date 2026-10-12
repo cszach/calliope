@@ -14,7 +14,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 REPO = Path(__file__).resolve().parent.parent
-ICON = REPO / "data/icons/hicolor/scalable/apps/io.github.cszach.Muse.svg"
+# Muse's own icon once `make install` has fetched it (it is never committed),
+# else the repository's.
+ICONS = (REPO / "data/icons/official/512.png",
+         REPO / "data/icons/hicolor/scalable/apps/io.github.cszach.Muse.svg")
 SIZE = (1920, 1200)
 FPS = 30
 SCALE = 2  # the recording's monitor scale: events are in logical pixels
@@ -140,12 +143,13 @@ def with_alpha(image, alpha):
 
 
 def icon(size):
-    """Muse's icon, rendered through GdkPixbuf's SVG loader."""
+    """Muse's icon, loaded through GdkPixbuf, which also renders SVG."""
     try:
         import gi
         gi.require_version("GdkPixbuf", "2.0")
         from gi.repository import GdkPixbuf
-        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(str(ICON), size, size)
+        path = next(p for p in ICONS if p.exists())
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(str(path), size, size)
         ok, data = pixbuf.save_to_bufferv("png", [], [])
         import io
         return Image.open(io.BytesIO(data)).convert("RGBA")
