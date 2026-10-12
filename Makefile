@@ -20,8 +20,19 @@ GENERATED := $(GENDIR)/$(APP_ID).desktop $(GENDIR)/$(APP_ID).service \
 # Fallback quick-ask key, for desktops without the GlobalShortcuts portal.
 SHORTCUT ?= <Control><Alt>m
 
+# Where scripts/fetch-icon.sh keeps Muse's icons; ignored by git.
+OFFICIAL := data/icons/official
 # Sizes of the official icon in both the muse.ai manifest and hicolor.
 OFFICIAL_SIZES := 512 256 192 96 72 64 48 32
+# Muse's mark for the top bar, plain and with a notification dot, made at
+# install time from the site's favicon.
+TOP_BAR_ICON := scalable/status/$(APP_ID)-top-bar.svg
+TOP_BAR_DOT_ICON := scalable/status/$(APP_ID)-top-bar-attention.svg
+# What `make install` puts under $(ICONDIR): Muse's icons, or the repository's.
+OFFICIAL_ICONS := $(foreach s,$(OFFICIAL_SIZES),$(s)x$(s)/apps/$(APP_ID).png) \
+	$(TOP_BAR_ICON) $(TOP_BAR_DOT_ICON)
+PLACEHOLDER_ICONS := scalable/apps/$(APP_ID).svg symbolic/apps/$(APP_ID)-symbolic.svg \
+	symbolic/apps/$(APP_ID)-attention-symbolic.svg
 
 .PHONY: all build run check fmt clippy test validate bench install uninstall \
 	install-shortcut uninstall-shortcut \
@@ -65,26 +76,31 @@ install: build $(GENERATED)
 	install -Dm755 target/release/muse $(BINDIR)/muse
 	install -Dm644 $(GENDIR)/$(APP_ID).desktop $(DATADIR)/applications/$(APP_ID).desktop
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
-	@# Prefer the official icon when `make fetch-icon` has downloaded it.
-	@# GNOME Shell draws notification headers with the symbolic icon, so the
-	@# neutral one goes too; Shell then falls back to the official icon.
-	if ls data/icons/official/*.png >/dev/null 2>&1; then \
-		rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg \
-			$(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg; \
-		for f in data/icons/official/*.png; do \
-			size=$$(basename $$f .png); \
-			install -Dm644 $$f $(ICONDIR)/$${size}x$${size}/apps/$(APP_ID).png; \
+	@# Muse's own icons are Meta's artwork: they come from muse.ai, never from
+	@# this repository. Without them (offline, say) the repository's stand in.
+	@# GNOME Shell draws notification headers with the symbolic icon when there
+	@# is one, so with Muse's icons the symbolic ones go; Shell then uses Muse's.
+	@if scripts/fetch-icon.sh $(OFFICIAL_SIZES); then \
+		set -e; \
+		rm -f $(addprefix $(ICONDIR)/,$(PLACEHOLDER_ICONS)); \
+		for size in $(OFFICIAL_SIZES); do \
+			install -Dm644 $(OFFICIAL)/$$size.png \
+				$(ICONDIR)/$${size}x$${size}/apps/$(APP_ID).png; \
 		done; \
+		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png > $(GENDIR)/top-bar.svg; \
+		scripts/top-bar-icon.sh $(OFFICIAL)/mark.png --dot > $(GENDIR)/top-bar-attention.svg; \
+		install -Dm644 $(GENDIR)/top-bar.svg $(ICONDIR)/$(TOP_BAR_ICON); \
+		install -Dm644 $(GENDIR)/top-bar-attention.svg $(ICONDIR)/$(TOP_BAR_DOT_ICON); \
+		echo "Installed Muse's icons."; \
 	else \
-		rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png); \
-		install -Dm644 data/icons/hicolor/scalable/apps/$(APP_ID).svg \
-			$(ICONDIR)/scalable/apps/$(APP_ID).svg; \
-		install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-symbolic.svg \
-			$(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg; \
+		set -e; \
+		echo "Could not download Muse's icons: installing placeholders." \
+			"Run 'make install' again when online."; \
+		rm -f $(addprefix $(ICONDIR)/,$(OFFICIAL_ICONS)); \
+		for f in $(PLACEHOLDER_ICONS); do \
+			install -Dm644 data/icons/hicolor/$$f $(ICONDIR)/$$f; \
+		done; \
 	fi
-	@# The top bar icon's notification dot.
-	install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-attention-symbolic.svg \
-		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
 	@# Replace Calliope: stop it if it is running (its login and settings move
 	@# when Muse first starts), remove an install of it from this prefix, and
 	@# keep autostart if it was on.
@@ -116,9 +132,7 @@ uninstall:
 	rm -f $(BINDIR)/muse
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
-	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg \
-		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
-	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)
+	rm -f $(addprefix $(ICONDIR)/,$(PLACEHOLDER_ICONS) $(OFFICIAL_ICONS))
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
 	@echo "Settings and login are kept in ~/.config/muse-gnome and ~/.local/share/muse-gnome."
@@ -138,7 +152,8 @@ install-shortcut:
 uninstall-shortcut:
 	scripts/install-shortcut.py --remove
 
+# Downloads Muse's icon again, for when muse.ai has changed it.
 fetch-icon:
-	scripts/fetch-icon.sh $(OFFICIAL_SIZES)
+	scripts/fetch-icon.sh --refresh $(OFFICIAL_SIZES)
 
 FORCE:
