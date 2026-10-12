@@ -1,7 +1,7 @@
 //! The top bar icon: a StatusNotifierItem with a small menu, shown by the
 //! AppIndicator extension (GNOME has no tray of its own). It carries a dot
-//! while a Muse notification has arrived that no Calliope window has been
-//! focused for since.
+//! while a notification from Muse has arrived that none of the app's windows
+//! has been focused for since.
 //!
 //! The item and its `com.canonical.dbusmenu` menu are exported on the app's
 //! own connection and registered under the app's bus name. The extension sends an activation token
@@ -19,7 +19,7 @@ use crate::consts::APP_ID;
 use crate::{quick_ask, window};
 
 const ITEM_PATH: &str = "/StatusNotifierItem";
-const MENU_PATH: &str = "/io/github/cszach/Calliope/TopBarMenu";
+const MENU_PATH: &str = "/io/github/cszach/Muse/TopBarMenu";
 const ITEM_INTERFACE: &str = "org.kde.StatusNotifierItem";
 const MENU_INTERFACE: &str = "com.canonical.dbusmenu";
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
@@ -70,7 +70,7 @@ impl Entry {
     /// dbusmenu labels mark the access key with an underscore, like GTK.
     fn label(self) -> &'static str {
         match self {
-            Entry::Open => "_Open Calliope",
+            Entry::Open => "_Open Muse",
             Entry::QuickAsk => "_Quick Ask",
             Entry::NewWindow => "_New Window",
             Entry::Separator => "",
@@ -88,7 +88,7 @@ fn status(shown: bool, attention: bool) -> &'static str {
     }
 }
 
-/// Called from `startup`. A Calliope that GNOME Shell started only to answer
+/// Called from `startup`. A Muse that GNOME Shell started only to answer
 /// searches shows no icon until it opens a window, so typing in the overview
 /// never flashes one into the top bar.
 pub fn init(app: &Rc<App>) {
@@ -129,7 +129,7 @@ fn start(app: &Rc<App>) {
         |_, _| log::debug!("top bar icon: no StatusNotifierWatcher"),
     );
 
-    // Any Calliope window coming to the front clears the dot.
+    // Any Muse window coming to the front clears the dot.
     for window in app.gtk.windows() {
         clear_on_focus(app, &window);
     }
@@ -211,7 +211,7 @@ pub fn set_shown(app: &App, shown: bool) {
     emit_status(app);
 }
 
-/// Marks a notification the user has not seen in a Calliope window yet.
+/// Marks a notification the user has not seen in a Muse window yet.
 pub fn notify(app: &App) {
     let seen = app.gtk.windows().iter().any(|w| w.is_active());
     if !seen {
@@ -246,13 +246,13 @@ fn item_property(app: &App, name: &str) -> glib::Variant {
     match name {
         "Category" => "ApplicationStatus".to_variant(),
         "Id" => APP_ID.to_variant(),
-        "Title" => "Calliope".to_variant(),
+        "Title" => "Muse".to_variant(),
         "Status" => status(app.config().top_bar_icon, ATTENTION.get()).to_variant(),
         "WindowId" => 0i32.to_variant(),
         "IconName" => format!("{APP_ID}-symbolic").to_variant(),
         "AttentionIconName" => format!("{APP_ID}-attention-symbolic").to_variant(),
         "IconPixmap" | "OverlayIconPixmap" | "AttentionIconPixmap" => no_pixmaps.to_variant(),
-        "ToolTip" => ("", no_pixmaps, "Calliope", "").to_variant(),
+        "ToolTip" => ("", no_pixmaps, "Muse", "").to_variant(),
         "ItemIsMenu" => false.to_variant(),
         "Menu" => glib::variant::ObjectPath::try_from(MENU_PATH)
             .map(|p| p.to_variant())

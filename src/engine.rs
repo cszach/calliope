@@ -22,7 +22,7 @@ pub struct Engine {
 const WEB_PROCESS_MEMORY_LIMIT_MB: u32 = 500;
 
 /// The script message `detect-webrtc.js` posts.
-pub const WEBRTC_MESSAGE: &str = "calliopeWebRTC";
+pub const WEBRTC_MESSAGE: &str = "museWebRTC";
 
 const MUSE_ONLY: &[&str] = &["https://muse.ai/*", "https://*.muse.ai/*"];
 

@@ -5,10 +5,12 @@ ICONDIR := $(DATADIR)/icons/hicolor
 AUTOSTARTDIR := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/autostart
 # GNOME Shell reads search providers from system data dirs only.
 SEARCH_PROVIDER_DIR := /usr/local/share/gnome-shell/search-providers
-APP_ID := io.github.cszach.Calliope
-# The app id and binary before the rename (#24); `make install` removes them.
-OLD_ID := io.github.cszach.Muse
-OLD_BIN := muse
+APP_ID := io.github.cszach.Muse
+# The app id, D-Bus path and binary while the app was called Calliope;
+# `make install` replaces such an install.
+OLD_ID := io.github.cszach.Calliope
+OLD_PATH := /io/github/cszach/Calliope
+OLD_BIN := calliope
 
 # Data files with the install path filled in.
 GENDIR := target/data
@@ -60,7 +62,7 @@ $(GENDIR)/%: data/%.in FORCE
 	sed 's|@BINDIR@|$(BINDIR)|g' $< > $@
 
 install: build $(GENERATED)
-	install -Dm755 target/release/calliope $(BINDIR)/calliope
+	install -Dm755 target/release/muse $(BINDIR)/muse
 	install -Dm644 $(GENDIR)/$(APP_ID).desktop $(DATADIR)/applications/$(APP_ID).desktop
 	install -Dm644 $(GENDIR)/$(APP_ID).service $(DATADIR)/dbus-1/services/$(APP_ID).service
 	@# Prefer the official icon when `make fetch-icon` has downloaded it.
@@ -83,12 +85,19 @@ install: build $(GENERATED)
 	@# The top bar icon's notification dot.
 	install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-attention-symbolic.svg \
 		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
-	@# Earlier versions installed AppStream metainfo.
-	rm -f $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
-	@# Replace an install from before the rename, keeping autostart if it was on.
+	@# Replace Calliope: stop it if it is running (its login and settings move
+	@# when Muse first starts), remove an install of it from this prefix, and
+	@# keep autostart if it was on.
+	-@if gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+		--method org.freedesktop.DBus.NameHasOwner $(OLD_ID) 2>/dev/null | grep -q true; then \
+		echo "Quitting Calliope"; \
+		gdbus call --session --dest $(OLD_ID) --object-path $(OLD_PATH) \
+			--method org.freedesktop.Application.ActivateAction quit '[]' '{}' >/dev/null; fi
 	rm -f $(BINDIR)/$(OLD_BIN) $(DATADIR)/applications/$(OLD_ID).desktop \
 		$(DATADIR)/dbus-1/services/$(OLD_ID).service \
+		$(DATADIR)/metainfo/$(OLD_ID).metainfo.xml \
 		$(ICONDIR)/scalable/apps/$(OLD_ID).svg $(ICONDIR)/symbolic/apps/$(OLD_ID)-symbolic.svg \
+		$(ICONDIR)/symbolic/apps/$(OLD_ID)-attention-symbolic.svg \
 		$(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(OLD_ID).png)
 	@if [ -f $(AUTOSTARTDIR)/$(OLD_ID).desktop ]; then \
 		rm -f $(AUTOSTARTDIR)/$(OLD_ID).desktop; \
@@ -100,20 +109,19 @@ install: build $(GENERATED)
 		--method org.freedesktop.DBus.ReloadConfig >/dev/null
 	@if [ -f $(AUTOSTARTDIR)/$(APP_ID).desktop ]; then \
 		install -m644 $(GENDIR)/$(APP_ID).autostart.desktop $(AUTOSTARTDIR)/$(APP_ID).desktop; fi
-	@echo "Installed. If Calliope is running, quit it (Ctrl+Q) to start the new version."
+	@echo "Installed. If Muse is running, quit it (Ctrl+Q) to start the new version."
 
 uninstall:
 	rm -f $(AUTOSTARTDIR)/$(APP_ID).desktop
-	rm -f $(BINDIR)/calliope
+	rm -f $(BINDIR)/muse
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
-	rm -f $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
 	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg \
 		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
 	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)
 	-update-desktop-database -q $(DATADIR)/applications
 	-gtk4-update-icon-cache -q -t -f $(ICONDIR)
-	@echo "Settings and login are kept in ~/.config/calliope and ~/.local/share/calliope."
+	@echo "Settings and login are kept in ~/.config/muse-gnome and ~/.local/share/muse-gnome."
 
 install-search-provider:
 	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(OLD_ID).search-provider.ini
@@ -125,7 +133,7 @@ uninstall-search-provider:
 	sudo rm -f $(SEARCH_PROVIDER_DIR)/$(APP_ID).search-provider.ini
 
 install-shortcut:
-	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/calliope --quick-ask'
+	scripts/install-shortcut.py '$(SHORTCUT)' '$(BINDIR)/muse --quick-ask'
 
 uninstall-shortcut:
 	scripts/install-shortcut.py --remove

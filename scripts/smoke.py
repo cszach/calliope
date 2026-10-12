@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Starts Calliope in clean, headless desktops and checks that it works.
+"""Starts Muse in clean, headless desktops and checks that it works.
 
 Everything runs as a new user would meet it: a fresh home directory, its own
-runtime directory and D-Bus session, and no Calliope config. Each case starts a
-display server, launches Calliope with --debug, waits for the start page to load,
+runtime directory and D-Bus session, and no Muse config. Each case starts a
+display server, launches Muse with --debug, waits for the start page to load,
 asks the page for its device pixel ratio, takes a screenshot of the whole
 screen, and quits.
 
@@ -32,15 +32,15 @@ import tempfile
 import time
 from pathlib import Path
 
-APP_ID = "io.github.cszach.Calliope"
-OBJECT = "/io/github/cszach/Calliope"
+APP_ID = "io.github.cszach.Muse"
+OBJECT = "/io/github/cszach/Muse"
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_CASES = "wayland@1,wayland@1.25,wayland@2,x11@1,x11@2,wayland@1+safe"
 # Big enough that the default 1100x800 window fits at scale 2.
 MONITOR = (2560, 1600)
 WAYLAND_DISPLAY = "smoke-wayland"
 # The login redirects pass through facebook.com; wait for the return.
-LOADED = re.compile(r"INFO\s+calliope::tab\] Finished https://muse\.ai/")
+LOADED = re.compile(r"INFO\s+muse::tab\] Finished https://muse\.ai/")
 EVAL = re.compile(r"debug-eval: (\{.*\})")
 TROUBLE = re.compile(r"panicked|web process (crashed|terminated)|CRITICAL", re.I)
 PROBE = (
@@ -57,7 +57,7 @@ def isolated_env(root):
            and k not in ("DISPLAY", "HOME")}
     env["HOME"] = str(root / "home")
     # Short: Wayland socket paths must fit in 108 bytes.
-    env["XDG_RUNTIME_DIR"] = tempfile.mkdtemp(prefix="calliope-smoke-")
+    env["XDG_RUNTIME_DIR"] = tempfile.mkdtemp(prefix="muse-smoke-")
     return env
 
 
@@ -139,9 +139,9 @@ def start_x11(log):
     return proc, f":{number}"
 
 
-def forget_calliope(home):
+def forget_muse(home):
     """No config, login or cache from an earlier case."""
-    for path in (".config/calliope", ".local/share/calliope", ".cache/calliope"):
+    for path in (".config/muse-gnome", ".local/share/muse-gnome", ".cache/muse-gnome"):
         shutil.rmtree(home / path, ignore_errors=True)
 
 
@@ -149,7 +149,7 @@ def run_case(case, launcher, out):
     display, _, rest = case.partition("@")
     scale, _, extra = rest.partition("+")
     home = Path(os.environ["HOME"])
-    forget_calliope(home)
+    forget_muse(home)
     result = {"case": case, "ok": False, "page": "", "dpr": "", "webgl2": "", "note": ""}
     env = dict(os.environ)
     args = ["--debug"] + (["--safe-graphics"] if extra == "safe" else [])
@@ -231,7 +231,7 @@ def inner(opts):
     subprocess.run(["gsettings", "set", "org.gnome.shell",
                     "welcome-dialog-last-shown-version", "'999'"])
     results = [run_case(case, opts.binary, out) for case in opts.cases.split(",")]
-    print(f"Calliope smoke test, binary {opts.binary}, {time.strftime('%Y-%m-%d')}\n")
+    print(f"Muse smoke test, binary {opts.binary}, {time.strftime('%Y-%m-%d')}\n")
     print("| Case | Result | Page | devicePixelRatio | WebGL2 | Note |")
     print("|---|---|---|---|---|---|")
     for r in results:
@@ -242,20 +242,20 @@ def inner(opts):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--binary", default=str(REPO / "target/release/calliope"))
+    parser.add_argument("--binary", default=str(REPO / "target/release/muse"))
     parser.add_argument("--cases", default=DEFAULT_CASES)
     parser.add_argument("--out", default=str(REPO / "target/smoke"))
     opts = parser.parse_args()
     for case in opts.cases.split(","):
         if not re.fullmatch(r"(wayland|x11)@\d+(\.\d+)?(\+safe)?", case):
             parser.error(f"case {case!r} is not DISPLAY@SCALE[+safe]")
-    if os.environ.get("CALLIOPE_SMOKE_INNER"):
+    if os.environ.get("MUSE_SMOKE_INNER"):
         sys.exit(inner(opts))
     # Results of the same case are overwritten; nothing else is removed.
     Path(opts.out).mkdir(parents=True, exist_ok=True)
-    root = Path(tempfile.mkdtemp(prefix="calliope-smoke-home-"))
+    root = Path(tempfile.mkdtemp(prefix="muse-smoke-home-"))
     env = isolated_env(root)
-    env["CALLIOPE_SMOKE_INNER"] = "1"
+    env["MUSE_SMOKE_INNER"] = "1"
     try:
         status = subprocess.run(["dbus-run-session", "--", sys.executable, __file__,
                                  *sys.argv[1:]], env=env).returncode

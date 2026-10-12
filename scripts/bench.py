@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Measures Calliope's memory, CPU and startup time.
+"""Measures Muse's memory, CPU and startup time.
 
 Each scenario starts a fresh release build under its own app id
-(io.github.cszach.Calliope.Bench) with its own XDG directories, copied from
+(io.github.cszach.Muse.Bench) with its own XDG directories, copied from
 --profile when given (use a copy of a logged-in profile for realistic
 numbers), waits for the page to settle, then records:
 
@@ -39,12 +39,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-APP_ID = "io.github.cszach.Calliope.Bench"
-OBJECT = "/io/github/cszach/Calliope/Bench"
+APP_ID = "io.github.cszach.Muse.Bench"
+OBJECT = "/io/github/cszach/Muse/Bench"
 REPO = Path(__file__).resolve().parent.parent
-BINARY = REPO / "target/release/calliope"
+BINARY = REPO / "target/release/muse"
 TICKS = os.sysconf("SC_CLK_TCK")
-FINISHED = re.compile(r"^\[(\S+) INFO\s+calliope::tab\] Finished https://muse\.ai/")
+FINISHED = re.compile(r"^\[(\S+) INFO\s+muse::tab\] Finished https://muse\.ai/")
 
 
 def bus_pid():
@@ -122,7 +122,7 @@ def first_finished(log_path, started):
 
 
 def run(scenario, profile, settle, window):
-    with tempfile.TemporaryDirectory(prefix="calliope-bench-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="muse-bench-") as tmp:
         tmp = Path(tmp)
         for root in ("data", "config", "cache"):
             src = profile / root if profile else None
@@ -134,7 +134,7 @@ def run(scenario, profile, settle, window):
                    XDG_DATA_HOME=str(tmp / "data"),
                    XDG_CONFIG_HOME=str(tmp / "config"),
                    XDG_CACHE_HOME=str(tmp / "cache"),
-                   RUST_LOG="calliope=info")
+                   RUST_LOG="muse=info")
         log_path = tmp / "log.txt"
         with open(log_path, "w") as log:
             args = ["--background"] if scenario == "background" else []

@@ -1,6 +1,6 @@
 # Performance
 
-How much Calliope costs to run, what was tried to make it cheaper, and what each
+How much Muse costs to run, what was tried to make it cheaper, and what each
 attempt changed. Numbers come from `scripts/bench.py`; rerun it after any change
 that could move them.
 
@@ -9,7 +9,7 @@ that could move them.
 - **Machine:** Zach's laptop: AMD Cezanne iGPU (session), Fedora 44, GNOME 50 on
   Wayland, WebKitGTK 2.54.1, GTK 4.22, libadwaita 1.9.
 - **Build:** release (`cargo build --release`), run under the app id
-  `io.github.cszach.Calliope.Bench` with throwaway XDG directories.
+  `io.github.cszach.Muse.Bench` with throwaway XDG directories.
 - **Profile:** a copy of a logged-in profile, so muse.ai loads the real chat app
   rather than the login page. It was deleted after the runs.
 - **Scenarios:** `idle` (one window, one tab), `tabs3` (three tabs of muse.ai),
@@ -23,14 +23,14 @@ that could move them.
 
 The logged-in page dominates: one web process holds about two thirds of the
 total. While the window is on screen, muse.ai's avatar video keeps about 40 %
-of a core busy; covered, minimised or hidden, Calliope idles near 0 %.
+of a core busy; covered, minimised or hidden, Muse idles near 0 %.
 
 ## Where the cost is (baseline, logged in, window on screen)
 
 | Process | PSS | CPU at idle |
 |---|---|---|
 | muse.ai page (one web process) | ~420–470 MiB | ~45 % |
-| Calliope UI (GTK, compositing) | ~95–155 MiB | ~10–14 % |
+| Muse UI (GTK, compositing) | ~95–155 MiB | ~10–14 % |
 | second web process | ~64 MiB | 0 % |
 | network process | ~35–53 MiB | 0 % |
 | sandbox helpers (bwrap, xdg-dbus-proxy) | ~2 MiB | 0 % |
@@ -38,7 +38,7 @@ of a core busy; covered, minimised or hidden, Calliope idles near 0 %.
 The idle CPU is muse.ai's avatar: a looping 720×720 H.264 video on the home
 page, decoded in software because Fedora's Mesa has no H.264 hardware
 decoding (docs/notes.md). It stops whenever the window is covered,
-minimised or hidden; the official app shows the same video, so Calliope
+minimised or hidden; the official app shows the same video, so Muse
 leaves it alone. With RPM Fusion's `mesa-va-drivers-freeworld` the video
 can decode on the GPU instead.
 
@@ -70,7 +70,7 @@ no public API controls prewarming, so it stays.
 
 A memory pressure limit is the one change that moves memory beyond noise:
 WebKit's web processes release caches and collect garbage before memory
-gets tight. 300, 400 and 500 MB are equal within noise, so Calliope uses
+gets tight. 300, 400 and 500 MB are equal within noise, so Muse uses
 500, the least eager. Build options were not benchmarked: the binary is
 4.5 MB of a 95–155 MiB UI process, below the run-to-run noise.
 
@@ -86,7 +86,7 @@ Stopping rule: the second round (300, 400, 500 MB, and the combination with
 the cache model) differed by less than the run-to-run range, and every
 other lever made things worse or did nothing, so tuning stops here. The
 next real gain would come from the page itself or from hardware video
-decoding, neither of which Calliope controls.
+decoding, neither of which Muse controls.
 
 Startup to the first finished load of muse.ai is about 1.5–2.5 s and
 network-bound; occasional runs take up to 9 s.

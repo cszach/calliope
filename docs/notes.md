@@ -24,9 +24,9 @@ its source and the date it was checked. When one changes, edit it in place.
 - The PWA manifest at `https://muse.ai/manifest.json` names the app "Muse",
   `start_url` `/?__pwa=1`, and lists icons at
   `/images/pwa_icons/{any,maskable}/{512,310,256,192,180,144,96,72,64,48,32}.png?v=3`,
-  fetchable without login (2026-10-08). Meta's trademarks page requires
-  permission to use its marks, so the repo ships its own icon and
-  `make fetch-icon` downloads the official one for personal use only.
+  fetchable without login (2026-10-08). The icons are Meta's artwork, so the
+  repository holds none of them: it ships its own icon, and `make fetch-icon`
+  downloads the official one into the ignored `data/icons/official/`.
 
 ## WebKitGTK 2.54.1 (Fedora 44 package `webkitgtk6.0-2.54.1-1.fc44`)
 
@@ -84,7 +84,7 @@ its source and the date it was checked. When one changes, edit it in place.
 - `Download` `destination` is a local path in API 6.0, not a URI.
 
 - A `WebView` in a window that has never been shown still loads and runs
-  its page: `calliope --background` reached the Muse title with
+  its page: `muse --background` reached the Muse title with
   `document.visibilityState` "hidden" (2026-10-08). Hiding a window with
   `set_visible(false)` keeps the page alive the same way, which is what lets
   background mode keep receiving web notifications. `visibilityState` is a
@@ -112,7 +112,7 @@ its source and the date it was checked. When one changes, edit it in place.
   AMD GPU (`gst-inspect-1.0 | grep va:`); H.264, HEVC and VP9 hardware
   decoding needs RPM Fusion's `mesa-va-drivers-freeworld`.
 - Benchmarks must run in a compositor of their own: on the desktop, whether
-  another window covers Calliope swings idle CPU between 0 % and 90 %.
+  another window covers the app swings idle CPU between 0 % and 90 %.
   `scripts/bench-headless` runs `mutter --headless --virtual-monitor` in a
   private D-Bus session; the page reports itself visible and focused there.
 
@@ -158,7 +158,7 @@ its source and the date it was checked. When one changes, edit it in place.
   other portal call; the Claude desktop app is bound this way here.
 - `Registry.Register` fails with "App info not found" unless a desktop file
   for the app id is installed (checked 2026-10-08), so global shortcuts work
-  only for the installed `io.github.cszach.Calliope`, never for a `.Devel`
+  only for the installed `io.github.cszach.Muse`, never for a `.Devel`
   instance. Register and `CreateSession` succeed for the installed id.
 - The portal's `Activated` signal carries an `activation_token` when Mutter
   provides one (`globalshortcuts.c`, 50.0).
@@ -209,7 +209,7 @@ its source and the date it was checked. When one changes, edit it in place.
 
 - Library versions (`apt-cache policy` in the official containers): Ubuntu
   26.04 has GTK 4.22.4, libadwaita 1.9.1, WebKitGTK 2.52.6 and rustc 1.93.1,
-  enough for the crate's `v4_20`/`v1_8`/`v2_52` features, and builds Calliope
+  enough for the crate's `v4_20`/`v1_8`/`v2_52` features, and builds Muse
   from a fresh clone. Ubuntu 24.04 (GTK 4.14, libadwaita 1.5) and Debian 13
   (GTK 4.18, libadwaita 1.7, though WebKitGTK 2.54.0) are too old.
 - At a fractional monitor scale WebKitGTK draws at the next whole scale and
@@ -277,12 +277,16 @@ What `scripts/demo.py` relies on, found by running it:
 - Meta's trademark page (meta.com/brand/resources/meta/our-trademarks/)
   bars Meta marks "as or as part of any" trademark, name, username or
   domain, and anything confusingly similar; WhatsApp's adds phonetic
-  takeoffs. Meta filed "META MUSE" (serial 50039578, 2026-08-08). Hence the
-  name Calliope, chosen by Zach for recalling the Muses by meaning, not
-  sound. muse.ai/terms (2026-09-08) forbid reverse engineering, distilling,
-  and hiding the automated nature of automated actions; nothing names
-  third-party clients. Calliope injects only the scripts in `data/js/` and
-  acts in the page only when the user asks.
+  takeoffs. Meta filed "META MUSE" (serial 50039578, 2026-08-08). The app is
+  named Muse all the same, in the repository `cszach/muse-gnome` (Zach's
+  choice, 2026-10-12, knowing these rules): it is not published, so
+  Flathub's and GNOME's naming rules do not apply, and the risk that remains
+  is a trademark notice to GitHub that forces a rename. The README, the
+  About dialog and the repository description say the app is unofficial and
+  not affiliated with Meta. muse.ai/terms (2026-09-08) forbid reverse
+  engineering, distilling, and hiding the automated nature of automated
+  actions; nothing names third-party clients. The app injects only the
+  scripts in `data/js/` and acts in the page only when the user asks.
 - GNOME HIG (developer.gnome.org/hig): names under 15 characters, no
   trademarks of others, every app needs a symbolic icon, 1024×600 must
   work and phone-friendly apps should reach 360×294. GNOME Circle is closed
@@ -292,7 +296,7 @@ What `scripts/demo.py` relies on, found by running it:
   screen recording, accessibility control) and task-done notifications.
   No global shortcut or menu-bar icon is documented. Local computer use is
   out of reach for a website host; M0 targets website parity plus
-  Calliope's own desktop features (Zach, 2026-10-08).
+  the app's own desktop features (Zach, 2026-10-08).
 - Dark mode reaches pages without extra code: libadwaita 1.9 sets
   `gtk-interface-color-scheme`, which WebKitGTK reads for
   `prefers-color-scheme` and updates live; checked with a probe for forced

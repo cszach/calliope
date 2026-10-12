@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 REPO = Path(__file__).resolve().parent.parent
-ICON = REPO / "data/icons/hicolor/scalable/apps/io.github.cszach.Calliope.svg"
+ICON = REPO / "data/icons/hicolor/scalable/apps/io.github.cszach.Muse.svg"
 SIZE = (1920, 1200)
 FPS = 30
 SCALE = 2  # the recording's monitor scale: events are in logical pixels
@@ -25,7 +25,7 @@ MIN_VIEW = 0.45
 KEYS_SHOWN = 1.6
 END_CARD = 3.5
 FADE = 0.4
-INSTALL = "github.com/cszach/calliope"
+INSTALL = "github.com/cszach/muse-gnome"
 
 
 def font(size, weight=400, family="Adwaita Sans"):
@@ -140,7 +140,7 @@ def with_alpha(image, alpha):
 
 
 def icon(size):
-    """Calliope's icon, rendered through GdkPixbuf's SVG loader."""
+    """Muse's icon, rendered through GdkPixbuf's SVG loader."""
     try:
         import gi
         gi.require_version("GdkPixbuf", "2.0")
@@ -164,8 +164,8 @@ def end_card():
         card.alpha_composite(art, ((SIZE[0] - art.width) // 2, y))
         y += art.height + 40
     for text, face, color, gap in (
-            ("Calliope", title, (30, 30, 30), 30),
-            ("A GNOME client for Muse", body, (80, 80, 80), 70),
+            ("Muse for GNOME", title, (30, 30, 30), 30),
+            ("Quick Ask, overview search, notifications and tabs", body, (80, 80, 80), 70),
             (INSTALL, mono, (30, 30, 30), 40),
             ("Unofficial. Not affiliated with or endorsed by Meta.", small, (110, 110, 110), 0)):
         left, top, right, bottom = draw.textbbox((0, 0), text, font=face)

@@ -69,7 +69,7 @@ fn general_page(
     let run_in_background = adw::SwitchRow::builder()
         .title("Run in _Background")
         .use_underline(true)
-        .subtitle("Keep Calliope running after its window closes, for notifications and quick ask")
+        .subtitle("Keep Muse running after its window closes, for notifications and quick ask")
         .active(config.background_mode)
         .build();
     let a = Rc::clone(app);
@@ -77,7 +77,7 @@ fn general_page(
         a.gtk
             .change_action_state("background-mode", &row.is_active().to_variant());
     });
-    // `calliope --background` can turn it on while the dialog is open.
+    // `muse --background` can turn it on while the dialog is open.
     let watch = app
         .gtk
         .lookup_action("background-mode")
@@ -99,7 +99,7 @@ fn general_page(
     let start_at_login = adw::SwitchRow::builder()
         .title("Start at _Login")
         .use_underline(true)
-        .subtitle("Start Calliope in the background when you log in")
+        .subtitle("Start Muse in the background when you log in")
         .active(config.start_at_login)
         .build();
     run_in_background
@@ -131,9 +131,7 @@ fn general_page(
     let send = adw::SwitchRow::builder()
         .title("_Send Prompts Automatically")
         .use_underline(true)
-        .subtitle(
-            "Send questions from the overview and “calliope --ask” as soon as they are typed in",
-        )
+        .subtitle("Send questions from the overview and “muse --ask” as soon as they are typed in")
         .active(config.quick_ask.submit)
         .build();
     let a = Rc::clone(app);
@@ -262,7 +260,7 @@ fn open_search_settings(app: &App, row: &adw::ButtonRow) {
                 log::warn!("cannot open Settings: {e}");
                 let dialog = adw::AlertDialog::new(
                     Some("Can’t Open Settings"),
-                    Some("Open Settings yourself and switch Calliope on under Search."),
+                    Some("Open Settings yourself and switch Muse on under Search."),
                 );
                 dialog.add_response("ok", "_OK");
                 dialog.present(parent.and_then(|w| w.upgrade()).as_ref());

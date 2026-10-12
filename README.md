@@ -1,19 +1,19 @@
-# Calliope
+# Muse for GNOME
 
-A desktop client for [Muse](https://muse.ai), Meta's AI agent, on GNOME.
-Calliope runs the real muse.ai web app, so every Muse feature is there. It uses
+An unofficial desktop app for [Muse](https://muse.ai), Meta's AI agent, on
+GNOME. It runs the real muse.ai web app, so every Muse feature is there. It uses
 the system's WebKitGTK engine instead of a bundled Chromium, so it stays light.
 It keeps you logged in across restarts, and adds what a browser tab cannot:
 Quick Ask from any app, Ask Muse from the Activities overview, notifications
 while its window is closed, and tabs and windows that share one login.
 
-Calliope is unofficial: it is not affiliated with or endorsed by Meta. "Muse" is
-Meta's name for its product, and Calliope only hosts the public website. You
-need a Muse account.
+This project is not affiliated with or endorsed by Meta. "Muse" is Meta's name
+for its product, and the app only hosts the public website. You need a Muse
+account.
 
 ## Install
 
-Calliope is not in an app store: you build it and install it into `~/.local`.
+The app is not in an app store: you build it and install it into `~/.local`.
 First install what it needs. Fedora 44 or later:
 
 ```sh
@@ -29,19 +29,19 @@ sudo apt install git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev lib
 Then:
 
 ```sh
-git clone https://github.com/cszach/calliope.git
-cd calliope
+git clone https://github.com/cszach/muse-gnome.git
+cd muse-gnome
 make install
 ```
 
-Open Calliope from the app grid. To update it, run `git pull` and `make install`
-again. `make uninstall` removes it and keeps your login and settings. The
-`calliope` command is in `~/.local/bin`; if your shell does not find it, log out
-and back in.
+Open Muse from the app grid. To update it, run `git pull` and `make install`
+again. `make uninstall` removes it and keeps your login and settings. The `muse`
+command is in `~/.local/bin`; if your shell does not find it, log out and back
+in.
 
 Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
 `webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too
-old. CI builds and runs Calliope on Fedora 44 and Ubuntu 26.04.
+old. CI builds and runs it on Fedora 44 and Ubuntu 26.04.
 
 ## Features
 
@@ -54,12 +54,12 @@ again or Escape to hide the window. It keeps its page between uses, so you can
 come back to the answer. Change the key later in **Settings → Keyboard → View
 and Customize Shortcuts**.
 
-From a terminal, `calliope --quick-ask` shows or hides it, and
-`calliope --ask "TEXT"` opens it with TEXT typed in.
+From a terminal, `muse --quick-ask` shows or hides it, and `muse --ask "TEXT"`
+opens it with TEXT typed in.
 
 ### Ask Muse from the overview
 
-Type a question in the Activities overview and choose **Ask Muse**: Calliope
+Type a question in the Activities overview and choose **Ask Muse**: the app
 opens with the question sent. This needs one more step, because GNOME Shell
 reads search providers only from system folders:
 
@@ -74,22 +74,22 @@ In Preferences, a prefix such as `?` limits Ask Muse to questions that start
 with it, and **Send Prompts Automatically** chooses whether questions are sent
 or only typed in. The same choice applies to `--ask`.
 
-GNOME Shell does not let a search result raise a window. When Calliope is
-already open, GNOME may say "Calliope is ready" instead of showing it; click the
+GNOME Shell does not let a search result raise a window. When the app is already
+open, GNOME may say "Muse is ready" instead of showing it; click the
 notification.
 
 ### Notifications and background mode
 
 When Muse sends a notification, it appears as a GNOME notification, and clicking
-it brings back the tab it came from. Calliope asks once whether muse.ai may show
+it brings back the tab it came from. The app asks once whether muse.ai may show
 notifications, and remembers the answer.
 
 With **Run in Background** on (Preferences, or the main menu), closing the
-window keeps Calliope running, so notifications and Quick Ask keep working and
+window keeps the app running, so notifications and Quick Ask keep working and
 the page is there when you come back. **Start at Login** starts it in the
 background when you log in. With the
 [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/),
-Calliope also shows an icon in the top bar, with a dot for new notifications. To
+the app also shows an icon in the top bar, with a dot for new notifications. To
 quit for real, press Ctrl+Q or choose Quit from the top bar menu.
 
 ### Tabs and windows
@@ -120,20 +120,21 @@ Ctrl+? shows these in the app.
 
 ## Privacy
 
-Calliope talks to no server of its own and collects nothing. The pages it shows
+The app talks to no server of its own and collects nothing. The pages it shows
 are muse.ai and Meta's login, which follow
 [Meta's privacy policy](https://www.facebook.com/privacy/policy/).
 
 Your login, cookies and site storage stay on your computer, like a browser's.
-They live in `~/.local/share/calliope` and `~/.cache/calliope`, and the settings
-in `~/.config/calliope/config.toml`. **Clear Site Data…** in Preferences logs
-you out of Muse, deletes the site data and forgets the permissions you granted.
+They live in `~/.local/share/muse-gnome` and `~/.cache/muse-gnome`, and the
+settings in `~/.config/muse-gnome/config.toml`. **Clear Site Data…** in
+Preferences logs you out of Muse, deletes the site data and forgets the
+permissions you granted.
 
-Calliope asks before a page uses the microphone, camera or notifications, and
+The app asks before a page uses the microphone, camera or notifications, and
 remembers each answer in the config file. It asks every time before sharing your
 screen. Location and pointer lock are always refused.
 
-Calliope adds three small scripts to pages, in an isolated script world that the
+The app adds three small scripts to pages, in an isolated script world that the
 page cannot see or change. They are in [`data/js`](data/js):
 
 - `detect-webrtc.js` watches for errors that name WebRTC, so the tab can offer
@@ -151,16 +152,16 @@ page cannot see or change. They are in [`data/js`](data/js):
 WebKitGTK 2.54, which Fedora 44 and the GNOME 51 runtime ship, has no WebRTC.
 Its developers turned WebRTC off in 2.54 while they move it to a new backend.
 Voice mode and the Secure VM view work without it. If a page fails because it
-needs WebRTC, Calliope shows a banner with **Open in Browser**.
+needs WebRTC, the app shows a banner with **Open in Browser**.
 
 ## Troubleshooting
 
-**The window is blank, flickers, shows glitches or crashes.** Quit Calliope
+**The window is blank, flickers, shows glitches or crashes.** Quit the app
 (Ctrl+Q, or Quit in the top bar menu when it runs in the background), then start
 it with safer graphics settings:
 
 ```sh
-calliope --safe-graphics
+muse --safe-graphics
 ```
 
 This draws with GTK's OpenGL renderer instead of Vulkan, turns off NVIDIA's
@@ -168,7 +169,7 @@ explicit sync, and has WebKit share frames through memory instead of DMA-BUF. It
 is slower.
 
 If that helps, or to go further, set variables in the `[webkit.env]` table of
-`~/.config/calliope/config.toml`, which Calliope applies at every start. Try
+`~/.config/muse-gnome/config.toml`, which the app applies at every start. Try
 them one at a time, in this order, cheapest first:
 
 ```toml
@@ -181,7 +182,7 @@ WEBKIT_DISABLE_COMPOSITING_MODE = "1"
 GDK_BACKEND = "x11"
 ```
 
-On laptops with NVIDIA PRIME, Calliope ignores the offload variables
+On laptops with NVIDIA PRIME, the app ignores the offload variables
 (`__NV_PRIME_RENDER_OFFLOAD` and others) and renders on the integrated GPU,
 where Muse's video works; set them in `[webkit.env]` to opt back in.
 `data/config.example.toml` lists every setting.
@@ -190,7 +191,7 @@ where Muse's video works; set them in `[webkit.env]` to opt back in.
 `data/config.example.toml` has a macOS variant to try.
 
 **Ask Muse does not appear in the overview.** Run `make install-search-provider`
-and log out and back in, check that Calliope is on in **Settings → Search**, and
+and log out and back in, check that Muse is on in **Settings → Search**, and
 type at least three characters (Preferences sets the minimum and the prefix).
 
 ## Development
@@ -200,7 +201,7 @@ Ask shortcut need the installed app. `make check` runs formatting, Clippy and
 the tests, as CI does. [`docs/notes.md`](docs/notes.md) records what was found
 out about WebKitGTK, GNOME and muse.ai, with sources.
 
-Two scripts run Calliope in headless GNOME sessions of their own:
+Two scripts run the app in headless GNOME sessions of their own:
 `scripts/smoke.py` checks that it starts and draws on Wayland and X11 at several
 scales, and `scripts/demo.py` records the demo video and the screenshots by
 script.
