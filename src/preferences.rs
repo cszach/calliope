@@ -150,12 +150,20 @@ fn general_page(
     quick_ask.add(&shortcut);
     page.add(&quick_ask);
 
+    let mut description = String::from(
+        "Type a question in the Activities overview to ask Muse. With a prefix such as “?”, \
+         only questions that start with it are offered.",
+    );
+    // `make install` cannot install it: GNOME Shell reads system folders only.
+    if !crate::search_provider::installed() {
+        description.push_str(
+            " Overview search is not installed yet: run “make install-search-provider”, then \
+             log out and back in.",
+        );
+    }
     let search = adw::PreferencesGroup::builder()
         .title("Search")
-        .description(
-            "Type a question in the Activities overview to ask Muse. With a prefix such as “?”, \
-             only questions that start with it are offered.",
-        )
+        .description(description)
         .build();
     let settings = adw::ButtonRow::builder()
         .title("_Open Search Settings")

@@ -83,6 +83,8 @@ install: build $(GENERATED)
 	@# The top bar icon's notification dot.
 	install -Dm644 data/icons/hicolor/symbolic/apps/$(APP_ID)-attention-symbolic.svg \
 		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
+	@# Earlier versions installed AppStream metainfo.
+	rm -f $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
 	@# Replace an install from before the rename, keeping autostart if it was on.
 	rm -f $(BINDIR)/$(OLD_BIN) $(DATADIR)/applications/$(OLD_ID).desktop \
 		$(DATADIR)/dbus-1/services/$(OLD_ID).service \
@@ -105,6 +107,7 @@ uninstall:
 	rm -f $(BINDIR)/calliope
 	rm -f $(DATADIR)/applications/$(APP_ID).desktop
 	rm -f $(DATADIR)/dbus-1/services/$(APP_ID).service
+	rm -f $(DATADIR)/metainfo/$(APP_ID).metainfo.xml
 	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/symbolic/apps/$(APP_ID)-symbolic.svg \
 		$(ICONDIR)/symbolic/apps/$(APP_ID)-attention-symbolic.svg
 	rm -f $(foreach s,$(OFFICIAL_SIZES),$(ICONDIR)/$(s)x$(s)/apps/$(APP_ID).png)

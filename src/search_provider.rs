@@ -3,6 +3,7 @@
 //! own bus name, starting Calliope as a D-Bus service if it is not running.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -16,6 +17,17 @@ const INTERFACE: &str = "org.gnome.Shell.SearchProvider2";
 /// Must match `ObjectPath` in the provider's `.ini`.
 const OBJECT_PATH: &str = "/io/github/cszach/Calliope/SearchProvider";
 const XML: &str = include_str!("../data/dbus/org.gnome.Shell.SearchProvider2.xml");
+
+/// Whether GNOME Shell can find the provider: its `.ini` is in one of the
+/// system data directories, the only ones Shell reads.
+pub fn installed() -> bool {
+    installed_in(&glib::system_data_dirs())
+}
+
+fn installed_in(data_dirs: &[PathBuf]) -> bool {
+    let ini = format!("gnome-shell/search-providers/{APP_ID}.search-provider.ini");
+    data_dirs.iter().any(|dir| dir.join(&ini).is_file())
+}
 
 /// Exports the provider on the app's D-Bus connection. Called from
 /// `startup`, before the main loop dispatches any call to it.
@@ -167,6 +179,20 @@ mod tests {
 
     fn terms(s: &str) -> Vec<String> {
         s.split_whitespace().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn provider_is_installed_when_a_system_data_dir_has_its_ini() {
+        let base = std::env::temp_dir().join(format!("calliope-provider-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (empty, system) = (base.join("empty"), base.join("system"));
+        let providers = system.join("gnome-shell/search-providers");
+        std::fs::create_dir_all(&empty).unwrap();
+        std::fs::create_dir_all(&providers).unwrap();
+        assert!(!installed_in(&[empty.clone(), system.clone()]));
+        std::fs::write(providers.join(format!("{APP_ID}.search-provider.ini")), "").unwrap();
+        assert!(installed_in(&[empty, system]));
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

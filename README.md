@@ -35,7 +35,9 @@ make install
 ```
 
 Open Calliope from the app grid. To update it, run `git pull` and `make install`
-again. `make uninstall` removes it and keeps your login and settings.
+again. `make uninstall` removes it and keeps your login and settings. The
+`calliope` command is in `~/.local/bin`; if your shell does not find it, log out
+and back in.
 
 Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
 `webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too

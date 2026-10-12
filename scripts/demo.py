@@ -165,22 +165,22 @@ def record(opts):
                  "preferences.png"):
         (out / name).unlink(missing_ok=True)
     root = short_tempdir("calliope-demo-")
-    home = root / "home"
-    # Login and site data, but not the cache or the settings it left.
-    shutil.copytree(app_data(profile), app_data(home), symlinks=True)
-    config = home / ".config/calliope/config.toml"
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(DEMO_CONFIG)
-    shutil.copytree(EXTENSION, home / ".local/share/gnome-shell/extensions" / EXTENSION_UUID)
-    hide_other_apps(home)
-    install(root / "prefix")
-    runtime = root / "run"
-    runtime.mkdir(mode=0o700)
-    env = clean_env(home, runtime)
-    # Not /usr/local/share, where your own install's search provider is.
-    env["XDG_DATA_DIRS"] = f"{root / 'prefix/share'}:/usr/share"
-    env["CALLIOPE_DEMO_INNER"] = "1"
+    home, runtime = root / "home", root / "run"
     try:
+        # Login and site data, but not the cache or the settings it left.
+        shutil.copytree(app_data(profile), app_data(home), symlinks=True)
+        config = home / ".config/calliope/config.toml"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(DEMO_CONFIG)
+        shutil.copytree(EXTENSION,
+                        home / ".local/share/gnome-shell/extensions" / EXTENSION_UUID)
+        hide_other_apps(home)
+        install(root / "prefix")
+        runtime.mkdir(mode=0o700)
+        env = clean_env(home, runtime)
+        # Not /usr/local/share, where your own install's search provider is.
+        env["XDG_DATA_DIRS"] = f"{root / 'prefix/share'}:/usr/share"
+        env["CALLIOPE_DEMO_INNER"] = "1"
         status = subprocess.run(
             ["dbus-run-session", "--", sys.executable, __file__, "record",
              "--profile", str(profile), "--out", str(out)], env=env).returncode
