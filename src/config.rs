@@ -83,9 +83,6 @@ pub struct QuickAskConfig {
     pub width: i32,
     pub height: i32,
     pub submit: bool,
-    /// The user has bound the global shortcut, so it is bound again at
-    /// startup. Inside Flatpak this is the only record of it Calliope can read.
-    pub shortcut_bound: bool,
 }
 
 impl Default for QuickAskConfig {
@@ -94,7 +91,6 @@ impl Default for QuickAskConfig {
             width: 480,
             height: 640,
             submit: true,
-            shortcut_bound: false,
         }
     }
 }

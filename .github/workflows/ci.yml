@@ -18,7 +18,7 @@ jobs:
         run: >
           dnf install -y --setopt=install_weak_deps=False
           git make gcc rust cargo clippy rustfmt pkgconf-pkg-config
-          gtk4-devel libadwaita-devel webkitgtk6.0-devel desktop-file-utils appstream
+          gtk4-devel libadwaita-devel webkitgtk6.0-devel desktop-file-utils
       - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
@@ -29,6 +29,45 @@ jobs:
           key: cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: cargo-
       - run: make check
+
+  # The README's Fedora build, run in headless desktops as a new user would
+  # meet it. Not part of `make check`: it depends on muse.ai answering.
+  fedora:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+      # WebKit's web process sandbox (bubblewrap) needs it.
+      options: --privileged
+    steps:
+      - name: Install build dependencies and a headless desktop
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git make gcc cargo gtk4-devel libadwaita-devel webkitgtk6.0-devel
+          gnome-shell xorg-x11-server-Xvfb ImageMagick python3-gobject python3-dbusmock dbus-daemon
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: fedora-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: fedora-cargo-
+      # GNOME Shell needs a system bus and logind, which containers lack.
+      - name: Start a system bus with a stand-in logind
+        run: |
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          python3 -m dbusmock --system --template logind > dbusmock.log 2>&1 &
+      - run: make build
+      - name: Run it in headless desktops
+        shell: bash
+        run: scripts/smoke.py --binary target/release/calliope --out smoke | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: smoke-fedora
+          path: smoke
 
   # The README's Ubuntu build, with Ubuntu's own GTK, libadwaita and
   # WebKitGTK, then the result run in headless desktops.

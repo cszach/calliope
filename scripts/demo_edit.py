@@ -25,7 +25,7 @@ MIN_VIEW = 0.45
 KEYS_SHOWN = 1.6
 END_CARD = 3.5
 FADE = 0.4
-INSTALL = "flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref"
+INSTALL = "github.com/cszach/calliope"
 
 
 def font(size, weight=400, family="Adwaita Sans"):

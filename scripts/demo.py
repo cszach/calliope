@@ -7,8 +7,8 @@ of the demo profile, its own D-Bus session, runtime directory and PipeWire.
 Mutter's ScreenCast API records the screen and its RemoteDesktop API moves
 the pointer and types; the demo-extension next to this script hides the
 sharing indicator that input session would put in the top bar, and tells the
-script where windows, labels and notification banners are. Calliope is the
-installed Flatpak, as people get it.
+script where windows, labels and notification banners are. Calliope is
+installed into the session with `make install`, as people install it.
 
 Commands:
   login        Opens Calliope from the demo profile on your desktop, to log
@@ -23,7 +23,7 @@ Usage: scripts/demo.py login [--profile DIR]
        scripts/demo.py edit [--out DIR]
 
 The profile defaults to ~/.local/share/calliope-demo and OUT to target/demo.
-Needs gnome-shell, pipewire, wireplumber, GStreamer's pipewiresrc and x264enc,
+Needs what building Calliope needs, gnome-shell, pipewire, wireplumber, GStreamer's pipewiresrc and x264enc,
 ffmpeg, and Python's GObject bindings and Pillow.
 """
 
@@ -68,9 +68,6 @@ DEMO_CONFIG = f"""\
 width = {WINDOW[0]}
 height = {WINDOW[1]}
 
-[quick_ask]
-shortcut_bound = true
-
 [permissions."https://muse.ai"]
 notifications = true
 """
@@ -81,10 +78,8 @@ GSETTINGS = [
     ("org.gnome.shell", "enabled-extensions", f"['{EXTENSION_UUID}']"),
     ("org.gnome.shell", "favorite-apps",
      "['org.gnome.Nautilus.desktop', 'org.gnome.TextEditor.desktop']"),
-    # Flatpak installs search providers switched off; Settings → Search
-    # switches Calliope on. The others are off, so "Ask Muse" is the only
-    # result and Enter picks it.
-    ("org.gnome.desktop.search-providers", "enabled", f"['{APP_ID}.desktop']"),
+    # With the other search providers off, "Ask Muse" is the only result and
+    # Enter picks it.
     ("org.gnome.desktop.search-providers", "disabled", str(sorted(
         line.split("=", 1)[1].strip()
         for ini in Path("/usr/share/gnome-shell/search-providers").glob("*.ini")
@@ -98,16 +93,21 @@ GSETTINGS = [
 ]
 
 
-def flatpak_location():
-    out = subprocess.run(["flatpak", "info", "--show-location", APP_ID],
-                         capture_output=True, text=True)
-    if out.returncode != 0:
-        sys.exit(f"Calliope's Flatpak is not installed: {out.stderr.strip()}")
-    return Path(out.stdout.strip())
-
-
 def app_data(home):
-    return home / ".var/app" / APP_ID
+    """Where Calliope keeps the login and site data of the user at `home`."""
+    return home / ".local/share/calliope"
+
+
+def install(prefix):
+    """Calliope as `make install` lays it out, in a prefix of its own, with
+    the search provider GNOME Shell reads from system data directories."""
+    # AUTOSTARTDIR: `make install` refreshes an autostart entry it finds, and
+    # yours must keep pointing at your own install.
+    subprocess.run(["make", "-C", str(REPO), "install", f"PREFIX={prefix}",
+                    f"AUTOSTARTDIR={prefix}/autostart"], check=True, stdout=subprocess.DEVNULL)
+    providers = prefix / "share/gnome-shell/search-providers"
+    providers.mkdir(parents=True, exist_ok=True)
+    shutil.copy(REPO / f"data/{APP_ID}.search-provider.ini", providers)
 
 
 def clean_env(home, runtime):
@@ -135,7 +135,7 @@ def remove_runtime(runtime):
 def login(opts):
     """Calliope from the demo profile, on this desktop but on a D-Bus session
     of its own, so it runs beside your own Calliope."""
-    flatpak_location()
+    subprocess.run(["make", "-C", str(REPO), "build"], check=True)
     profile = Path(opts.profile)
     profile.mkdir(parents=True, exist_ok=True)
     runtime = short_tempdir("calliope-demo-")
@@ -145,7 +145,7 @@ def login(opts):
     env["WAYLAND_DISPLAY"] = str(Path(real_runtime) / display)
     print(f"Log in to the demo account, then quit Calliope with Ctrl+Q.\nProfile: {profile}")
     try:
-        status = subprocess.run(["dbus-run-session", "--", "flatpak", "run", APP_ID],
+        status = subprocess.run(["dbus-run-session", "--", str(REPO / "target/release/calliope")],
                                 env=env).returncode
     finally:
         remove_runtime(runtime)
@@ -155,9 +155,8 @@ def login(opts):
 # --- The recorded session -------------------------------------------------
 
 def record(opts):
-    location = flatpak_location()
     profile = Path(opts.profile)
-    if not (app_data(profile) / "data").exists():
+    if not app_data(profile).exists():
         sys.exit(f"No demo profile in {profile}; run `scripts/demo.py login` first.")
     out = Path(opts.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -167,21 +166,19 @@ def record(opts):
         (out / name).unlink(missing_ok=True)
     root = short_tempdir("calliope-demo-")
     home = root / "home"
-    # Login and site data, but not the cache or the window size it left.
-    for part in ("data", "config"):
-        source = app_data(profile) / part
-        if source.exists():
-            shutil.copytree(source, app_data(home) / part, symlinks=True)
-    config = app_data(home) / "config/calliope/config.toml"
+    # Login and site data, but not the cache or the settings it left.
+    shutil.copytree(app_data(profile), app_data(home), symlinks=True)
+    config = home / ".config/calliope/config.toml"
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(DEMO_CONFIG)
     shutil.copytree(EXTENSION, home / ".local/share/gnome-shell/extensions" / EXTENSION_UUID)
     hide_other_apps(home)
+    install(root / "prefix")
     runtime = root / "run"
     runtime.mkdir(mode=0o700)
     env = clean_env(home, runtime)
-    # Calliope's own exports only: not the other apps installed here.
-    env["XDG_DATA_DIRS"] = f"{location / 'export/share'}:/usr/local/share:/usr/share"
+    # Not /usr/local/share, where your own install's search provider is.
+    env["XDG_DATA_DIRS"] = f"{root / 'prefix/share'}:/usr/share"
     env["CALLIOPE_DEMO_INNER"] = "1"
     try:
         status = subprocess.run(
@@ -200,11 +197,10 @@ def hide_other_apps(home):
     entry with NoDisplay hides the system one with the same id."""
     applications = home / ".local/share/applications"
     applications.mkdir(parents=True, exist_ok=True)
-    for directory in (Path("/usr/local/share/applications"), Path("/usr/share/applications")):
-        for entry in directory.glob("*.desktop"):
-            if entry.stem not in GRID_APPS and not (applications / entry.name).exists():
-                (applications / entry.name).write_text(
-                    "[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n")
+    for entry in Path("/usr/share/applications").glob("*.desktop"):
+        if entry.stem not in GRID_APPS:
+            (applications / entry.name).write_text(
+                "[Desktop Entry]\nType=Application\nName=Hidden\nNoDisplay=true\n")
 
 
 class Session:

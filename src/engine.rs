@@ -63,15 +63,10 @@ impl Engine {
 
     pub fn new(app: &Rc<App>) -> Self {
         log::info!(
-            "WebKitGTK {}.{}.{}{}",
+            "WebKitGTK {}.{}.{}",
             webkit::functions::major_version(),
             webkit::functions::minor_version(),
             webkit::functions::micro_version(),
-            if ashpd::is_sandboxed() {
-                ", sandboxed"
-            } else {
-                ""
-            }
         );
         let data_dir = paths::data_dir();
         let cache_dir = paths::cache_dir();

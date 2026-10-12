@@ -13,16 +13,33 @@ need a Muse account.
 
 ## Install
 
-Calliope is a Flatpak from its own signed repository: open
-[zachnguyen.com/calliope](https://zachnguyen.com/calliope/) and choose **Install
-with GNOME Software**, or run
+Calliope is not in an app store: you build it and install it into `~/.local`.
+First install what it needs. Fedora 44 or later:
 
 ```sh
-flatpak install --user https://zachnguyen.com/calliope/calliope.flatpakref
+sudo dnf install git make gcc cargo gtk4-devel libadwaita-devel webkitgtk6.0-devel
 ```
 
-Updates arrive with your other Flatpak apps. To build it yourself, see
-[Build](#build).
+Ubuntu 26.04 or later:
+
+```sh
+sudo apt install git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
+```
+
+Then:
+
+```sh
+git clone https://github.com/cszach/calliope.git
+cd calliope
+make install
+```
+
+Open Calliope from the app grid. To update it, run `git pull` and `make install`
+again. `make uninstall` removes it and keeps your login and settings.
+
+Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
+`webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too
+old. CI builds and runs Calliope on Fedora 44 and Ubuntu 26.04.
 
 ## Features
 
@@ -36,15 +53,20 @@ come back to the answer. Change the key later in **Settings → Keyboard → Vie
 and Customize Shortcuts**.
 
 From a terminal, `calliope --quick-ask` shows or hides it, and
-`calliope --ask "TEXT"` opens it with TEXT typed in. With the Flatpak, use
-`flatpak run io.github.cszach.Calliope` in place of `calliope`.
+`calliope --ask "TEXT"` opens it with TEXT typed in.
 
 ### Ask Muse from the overview
 
 Type a question in the Activities overview and choose **Ask Muse**: Calliope
-opens with the question sent. Flatpak installs every app's search switched off,
-so first turn Calliope on in **Settings → Search**. Preferences has an **Open
-Search Settings** button for this.
+opens with the question sent. This needs one more step, because GNOME Shell
+reads search providers only from system folders:
+
+```sh
+make install-search-provider
+```
+
+It asks for your password (it uses `sudo` to copy one file into
+`/usr/local/share`). Then log out and back in.
 
 In Preferences, a prefix such as `?` limits Ask Muse to questions that start
 with it, and **Send Prompts Automatically** chooses whether questions are sent
@@ -63,8 +85,7 @@ notifications, and remembers the answer.
 With **Run in Background** on (Preferences, or the main menu), closing the
 window keeps Calliope running, so notifications and Quick Ask keep working and
 the page is there when you come back. **Start at Login** starts it in the
-background when you log in; the Flatpak then appears under **Background Apps**
-in the system menu. With the
+background when you log in. With the
 [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/),
 Calliope also shows an icon in the top bar, with a dot for new notifications. To
 quit for real, press Ctrl+Q or choose Quit from the top bar menu.
@@ -102,9 +123,8 @@ are muse.ai and Meta's login, which follow
 [Meta's privacy policy](https://www.facebook.com/privacy/policy/).
 
 Your login, cookies and site storage stay on your computer, like a browser's.
-For the Flatpak they live in `~/.var/app/io.github.cszach.Calliope/`. For a
-build from source they live in `~/.local/share/calliope`, `~/.cache/calliope`
-and `~/.config/calliope/config.toml`. **Clear Site Data…** in Preferences logs
+They live in `~/.local/share/calliope` and `~/.cache/calliope`, and the settings
+in `~/.config/calliope/config.toml`. **Clear Site Data…** in Preferences logs
 you out of Muse, deletes the site data and forgets the permissions you granted.
 
 Calliope asks before a page uses the microphone, camera or notifications, and
@@ -138,18 +158,16 @@ needs WebRTC, Calliope shows a banner with **Open in Browser**.
 it with safer graphics settings:
 
 ```sh
-flatpak run io.github.cszach.Calliope --safe-graphics
+calliope --safe-graphics
 ```
 
-(`calliope --safe-graphics` for a build from source.) This draws with GTK's
-OpenGL renderer instead of Vulkan, turns off NVIDIA's explicit sync, and has
-WebKit share frames through memory instead of DMA-BUF. It is slower.
+This draws with GTK's OpenGL renderer instead of Vulkan, turns off NVIDIA's
+explicit sync, and has WebKit share frames through memory instead of DMA-BUF. It
+is slower.
 
 If that helps, or to go further, set variables in the `[webkit.env]` table of
-the config file, which Calliope applies at every start:
-`~/.var/app/io.github.cszach.Calliope/config/calliope/config.toml` for the
-Flatpak, `~/.config/calliope/config.toml` otherwise. Try them one at a time, in
-this order, cheapest first:
+`~/.config/calliope/config.toml`, which Calliope applies at every start. Try
+them one at a time, in this order, cheapest first:
 
 ```toml
 [webkit.env]
@@ -169,52 +187,16 @@ where Muse's video works; set them in `[webkit.env]` to opt back in.
 **Muse says the browser is not supported.** Set `user_agent` in the config file;
 `data/config.example.toml` has a macOS variant to try.
 
-**Ask Muse does not appear in the overview.** Turn Calliope on in **Settings →
-Search**, and type at least three characters (Preferences sets the minimum and
-the prefix).
-
-## Build
-
-Fedora 44 or later:
-
-```sh
-sudo dnf install git make gcc cargo gtk4-devel libadwaita-devel webkitgtk6.0-devel
-```
-
-Ubuntu 26.04 or later:
-
-```sh
-sudo apt install git make gcc cargo pkg-config libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev
-```
-
-Then:
-
-```sh
-git clone https://github.com/cszach/calliope.git
-cd calliope
-make build
-make run
-```
-
-Other distributions need GTK 4.20, libadwaita 1.8, WebKitGTK 2.52 (the
-`webkitgtk-6.0` API) and Rust 1.85, or later; Ubuntu 24.04 and Debian 13 are too
-old. CI builds on Fedora 44 and Ubuntu 26.04.
-
-Each [release](https://github.com/cszach/calliope/releases) also has a source
-tarball with every Rust crate included, which builds the same way without
-network access.
-
-`make install` installs into `~/.local` instead of Flatpak. Overview search then
-also needs `make install-search-provider`, which uses `sudo`, because GNOME
-Shell reads search providers only from system folders. To build the Flatpak, see
-`build-aux/flatpak/`; CI builds it on every pull request.
+**Ask Muse does not appear in the overview.** Run `make install-search-provider`
+and log out and back in, check that Calliope is on in **Settings → Search**, and
+type at least three characters (Preferences sets the minimum and the prefix).
 
 ## Development
 
-`make check` runs formatting, Clippy and the tests, as CI does.
-[`docs/notes.md`](docs/notes.md) records what was found out about WebKitGTK,
-GNOME and muse.ai, with sources. [`docs/releasing.md`](docs/releasing.md)
-explains releases.
+`make run` runs a debug build without installing it; notifications and the Quick
+Ask shortcut need the installed app. `make check` runs formatting, Clippy and
+the tests, as CI does. [`docs/notes.md`](docs/notes.md) records what was found
+out about WebKitGTK, GNOME and muse.ai, with sources.
 
 Two scripts run Calliope in headless GNOME sessions of their own:
 `scripts/smoke.py` checks that it starts and draws on Wayland and X11 at several
